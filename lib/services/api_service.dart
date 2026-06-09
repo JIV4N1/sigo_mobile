@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
+import 'api_config.dart';
 import 'auth_service.dart';
 import 'navigation_service.dart';
 import '../screens/login_screen.dart';
@@ -11,7 +13,7 @@ class ApiException implements Exception {
   final int? statusCode;
   final Map<String, dynamic>? errors;
 
-  ApiException(this.message, {this.statusCode, this.errors});
+  const ApiException(this.message, {this.statusCode, this.errors});
 
   @override
   String toString() => 'ApiException: $message (HTTP $statusCode)';
@@ -19,46 +21,75 @@ class ApiException implements Exception {
 
 /// Servicio HTTP genérico para comunicación con el backend Laravel.
 ///
-/// - Inyecta el token Bearer automáticamente en cada petición.
-/// - Si la respuesta es 401, cierra sesión y navega al login.
-/// - Si la respuesta tiene `"status": "error"`, lanza [ApiException].
-/// - Timeout de 15 segundos por petición.
+/// ## Metodología de conexión
+///
+/// 1. **Protocolo**: HTTPS sobre ngrok-free (TLS terminado en ngrok).
+/// 2. **Autenticación**: Bearer Token (Laravel Sanctum). El token se guarda en
+///    SharedPreferences y se inyecta automáticamente en cada request.
+/// 3. **Headers obligatorios**:
+///    - `Content-Type: application/json`
+///    - `Accept: application/json`
+///    - `ngrok-skip-browser-warning: true` → evita que ngrok sirva HTML en vez de JSON.
+///    - `Authorization: Bearer <token>` → sólo cuando hay sesión activa.
+/// 4. **Formato de respuesta esperado**:
+///    - Éxito: `{"status":"success","data":{...},"message":""}`
+///    - Error:  `{"status":"error","message":"...","errors":{...}}`
+/// 5. **Timeout**: 20 segundos (ngrok puede añadir latencia extra).
+/// 6. **Error 401**: cierra sesión automáticamente y navega al LoginScreen.
+/// 7. **Multipart**: para subida de fotos con el campo `fotos[]`.
 class ApiService {
-  static const Duration _timeout = Duration(seconds: 15);
+  static const Duration _timeout = Duration(seconds: 20);
 
   // ─── Headers ──────────────────────────────────────────────────────────────────
 
-  static Future<Map<String, String>> _getHeaders() async {
-    final token = await AuthService.getToken();
-    return {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-      if (token != null) 'Authorization': 'Bearer $token',
-    };
+  /// Construye los headers base incluyendo el token Bearer si hay sesión activa.
+  static Future<Map<String, String>> _getHeaders({
+    bool requiresAuth = true,
+  }) async {
+    final headers = Map<String, String>.from(ApiConfig.defaultHeaders);
+    if (requiresAuth) {
+      final token = await AuthService.getToken();
+      if (token != null && token.isNotEmpty) {
+        headers['Authorization'] = 'Bearer $token';
+      }
+    }
+    return headers;
   }
 
   // ─── Manejo de respuesta ──────────────────────────────────────────────────────
 
   /// Decodifica la respuesta HTTP y maneja errores comunes.
+  ///
+  /// Lanza [ApiException] si:
+  /// - El código HTTP es 401 (sesión expirada).
+  /// - El campo `status` en el JSON es `"error"`.
+  /// - El código HTTP >= 400 y no es estructura estándar.
+  /// - La respuesta no puede decodificarse como JSON.
   static Map<String, dynamic> _handleResponse(http.Response response) {
-    // 401 — Token inválido o expirado: cerrar sesión y volver al login
+    // 401 — Token inválido o expirado
     if (response.statusCode == 401) {
       _handleUnauthorized();
-      throw ApiException('Sesión expirada. Por favor inicia sesión de nuevo.',
-          statusCode: 401);
+      throw const ApiException(
+        'Sesión expirada. Por favor inicia sesión de nuevo.',
+        statusCode: 401,
+      );
     }
 
+    // Intentar parsear JSON
     Map<String, dynamic> body;
     try {
       body = jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
     } catch (_) {
+      // Si la respuesta es HTML (ej. la advertencia de ngrok sin el header)
+      // o no es JSON válido
       throw ApiException(
-        'Error al procesar la respuesta del servidor.',
+        'Respuesta inesperada del servidor (¿HTML en vez de JSON?). '
+        'Verifica que el header ngrok-skip-browser-warning esté activo.',
         statusCode: response.statusCode,
       );
     }
 
-    // La API retorna { "status": "error", "message": "...", "errors": {...} }
+    // Error de negocio: {"status":"error","message":"...","errors":{...}}
     if (body['status'] == 'error') {
       throw ApiException(
         body['message'] as String? ?? 'Error desconocido del servidor.',
@@ -67,10 +98,11 @@ class ApiService {
       );
     }
 
-    // Códigos de error HTTP que no retornan estructura estándar
+    // Otros códigos HTTP de error que no retornan estructura estándar
     if (response.statusCode >= 400) {
       throw ApiException(
-        body['message'] as String? ?? 'Error del servidor (${response.statusCode}).',
+        body['message'] as String? ??
+            'Error del servidor (${response.statusCode}).',
         statusCode: response.statusCode,
       );
     }
@@ -78,7 +110,7 @@ class ApiService {
     return body;
   }
 
-  /// Maneja el caso de respuesta 401: limpia sesión y navega al login.
+  /// Limpia la sesión y navega al LoginScreen cuando el token ya no es válido.
   static void _handleUnauthorized() {
     AuthService.clearSession();
     NavigationService.navigateAndRemoveAll(const LoginScreen());
@@ -86,26 +118,31 @@ class ApiService {
 
   // ─── Métodos públicos ─────────────────────────────────────────────────────────
 
-  /// GET a [url], retorna el cuerpo de la respuesta ya decodificado.
+  /// GET a [url], con query params opcionales.
+  /// Retorna el body completo decodificado (incluyendo `status`, `data`, etc.).
   static Future<Map<String, dynamic>> get(
     String url, {
     Map<String, String>? queryParams,
+    bool requiresAuth = true,
   }) async {
-    final uri = Uri.parse(url).replace(
-      queryParameters: queryParams,
-    );
+    final uri = queryParams != null
+        ? Uri.parse(url).replace(queryParameters: queryParams)
+        : Uri.parse(url);
 
     try {
-      final headers = await _getHeaders();
+      final headers = await _getHeaders(requiresAuth: requiresAuth);
       final response =
           await http.get(uri, headers: headers).timeout(_timeout);
       return _handleResponse(response);
     } on ApiException {
       rethrow;
     } on SocketException {
-      throw ApiException('Sin conexión a internet. Verifica tu red.');
+      throw const ApiException('Sin conexión a internet. Verifica tu red.');
     } on HttpException {
-      throw ApiException('Error de comunicación con el servidor.');
+      throw const ApiException('Error de comunicación con el servidor.');
+    } on TimeoutException {
+      throw const ApiException(
+          'El servidor tardó demasiado en responder. Intenta de nuevo.');
     } catch (e) {
       throw ApiException('Error inesperado: ${e.toString()}');
     }
@@ -115,11 +152,12 @@ class ApiService {
   static Future<Map<String, dynamic>> post(
     String url, {
     Map<String, dynamic>? body,
+    bool requiresAuth = true,
   }) async {
     final uri = Uri.parse(url);
 
     try {
-      final headers = await _getHeaders();
+      final headers = await _getHeaders(requiresAuth: requiresAuth);
       final response = await http
           .post(
             uri,
@@ -131,9 +169,12 @@ class ApiService {
     } on ApiException {
       rethrow;
     } on SocketException {
-      throw ApiException('Sin conexión a internet. Verifica tu red.');
+      throw const ApiException('Sin conexión a internet. Verifica tu red.');
     } on HttpException {
-      throw ApiException('Error de comunicación con el servidor.');
+      throw const ApiException('Error de comunicación con el servidor.');
+    } on TimeoutException {
+      throw const ApiException(
+          'El servidor tardó demasiado en responder. Intenta de nuevo.');
     } catch (e) {
       throw ApiException('Error inesperado: ${e.toString()}');
     }
@@ -143,11 +184,12 @@ class ApiService {
   static Future<Map<String, dynamic>> put(
     String url, {
     Map<String, dynamic>? body,
+    bool requiresAuth = true,
   }) async {
     final uri = Uri.parse(url);
 
     try {
-      final headers = await _getHeaders();
+      final headers = await _getHeaders(requiresAuth: requiresAuth);
       final response = await http
           .put(
             uri,
@@ -159,9 +201,70 @@ class ApiService {
     } on ApiException {
       rethrow;
     } on SocketException {
-      throw ApiException('Sin conexión a internet. Verifica tu red.');
+      throw const ApiException('Sin conexión a internet. Verifica tu red.');
     } on HttpException {
-      throw ApiException('Error de comunicación con el servidor.');
+      throw const ApiException('Error de comunicación con el servidor.');
+    } on TimeoutException {
+      throw const ApiException(
+          'El servidor tardó demasiado en responder. Intenta de nuevo.');
+    } catch (e) {
+      throw ApiException('Error inesperado: ${e.toString()}');
+    }
+  }
+
+  /// PATCH a [url] con [body] en formato JSON.
+  static Future<Map<String, dynamic>> patch(
+    String url, {
+    Map<String, dynamic>? body,
+    bool requiresAuth = true,
+  }) async {
+    final uri = Uri.parse(url);
+
+    try {
+      final headers = await _getHeaders(requiresAuth: requiresAuth);
+      final response = await http
+          .patch(
+            uri,
+            headers: headers,
+            body: body != null ? jsonEncode(body) : null,
+          )
+          .timeout(_timeout);
+      return _handleResponse(response);
+    } on ApiException {
+      rethrow;
+    } on SocketException {
+      throw const ApiException('Sin conexión a internet. Verifica tu red.');
+    } on HttpException {
+      throw const ApiException('Error de comunicación con el servidor.');
+    } on TimeoutException {
+      throw const ApiException(
+          'El servidor tardó demasiado en responder. Intenta de nuevo.');
+    } catch (e) {
+      throw ApiException('Error inesperado: ${e.toString()}');
+    }
+  }
+
+  /// DELETE a [url].
+  static Future<Map<String, dynamic>> delete(
+    String url, {
+    bool requiresAuth = true,
+  }) async {
+    final uri = Uri.parse(url);
+
+    try {
+      final headers = await _getHeaders(requiresAuth: requiresAuth);
+      final response =
+          await http.delete(uri, headers: headers).timeout(_timeout);
+      return _handleResponse(response);
+    } on ApiException {
+      rethrow;
+    } on SocketException {
+      throw const ApiException('Sin conexión a internet. Verifica tu red.');
+    } on HttpException {
+      throw const ApiException('Error de comunicación con el servidor.');
+    } on TimeoutException {
+      throw const ApiException(
+          'El servidor tardó demasiado en responder. Intenta de nuevo.');
     } catch (e) {
       throw ApiException('Error inesperado: ${e.toString()}');
     }
@@ -169,8 +272,9 @@ class ApiService {
 
   /// POST multipart para envío de archivos (fotos).
   ///
-  /// [fields] contiene los campos de texto.
-  /// [filePaths] contiene rutas de archivos a adjuntar con el [fileFieldName].
+  /// - [fields]: campos de texto adicionales.
+  /// - [filePaths]: rutas locales de las imágenes a subir.
+  /// - [fileFieldName]: nombre del campo en el formulario (por defecto `fotos[]`).
   static Future<Map<String, dynamic>> postMultipart(
     String url, {
     Map<String, String> fields = const {},
@@ -183,35 +287,39 @@ class ApiService {
       final token = await AuthService.getToken();
       final request = http.MultipartRequest('POST', uri);
 
-      // Headers de autenticación (sin Content-Type, lo asigna multipart)
+      // Headers de autenticación (SIN Content-Type — lo asigna multipart automáticamente)
       request.headers.addAll({
         'Accept': 'application/json',
-        if (token != null) 'Authorization': 'Bearer $token',
+        'ngrok-skip-browser-warning': 'true',
+        if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
       });
 
       // Campos de texto
       request.fields.addAll(fields);
 
-      // Archivos adjuntos
+      // Archivos adjuntos — sólo los que existen en disco
       for (final path in filePaths) {
         if (path.isNotEmpty && File(path).existsSync()) {
-          request.files.add(await http.MultipartFile.fromPath(
-            fileFieldName,
-            path,
-          ));
+          request.files.add(
+            await http.MultipartFile.fromPath(fileFieldName, path),
+          );
         }
       }
 
-      final streamedResponse =
-          await request.send().timeout(_timeout);
+      final streamedResponse = await request.send().timeout(_timeout);
       final response = await http.Response.fromStream(streamedResponse);
       return _handleResponse(response);
     } on ApiException {
       rethrow;
     } on SocketException {
-      throw ApiException('Sin conexión a internet. Verifica tu red.');
+      throw const ApiException('Sin conexión a internet. Verifica tu red.');
+    } on TimeoutException {
+      throw const ApiException(
+          'El servidor tardó demasiado subiendo los archivos.');
     } catch (e) {
       throw ApiException('Error al subir archivos: ${e.toString()}');
     }
   }
 }
+
+

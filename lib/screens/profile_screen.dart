@@ -38,7 +38,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     try {
       // Intentar primero con los datos locales guardados (respuesta instantánea)
-      final localUser = await AuthService.getUsuario();
+      final localUser = await AuthService.getUsuarioMap();
       if (localUser != null && mounted) {
         setState(() {
           _userProfile = UserProfile.fromJson(localUser);

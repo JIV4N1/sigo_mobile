@@ -24,6 +24,18 @@ class ProjectHeader extends StatelessWidget {
         statusColor = AppColors.critical;
         statusText = 'Crítico';
         break;
+      case ProjectStatus.planned:
+        statusColor = AppColors.textMedium;
+        statusText = 'Planeado';
+        break;
+      case ProjectStatus.completed:
+        statusColor = AppColors.primary;
+        statusText = 'Completado';
+        break;
+      case ProjectStatus.archived:
+        statusColor = AppColors.border;
+        statusText = 'Archivado';
+        break;
     }
 
     return SliverAppBar(

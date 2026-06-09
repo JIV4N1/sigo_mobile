@@ -20,6 +20,12 @@ class ProjectCard extends StatelessWidget {
         return AppColors.warning;
       case ProjectStatus.critical:
         return AppColors.critical;
+      case ProjectStatus.planned:
+        return AppColors.textMedium;
+      case ProjectStatus.completed:
+        return AppColors.primary;
+      case ProjectStatus.archived:
+        return AppColors.border;
     }
   }
 
@@ -31,6 +37,12 @@ class ProjectCard extends StatelessWidget {
         return 'Retrasado';
       case ProjectStatus.critical:
         return 'Crítico';
+      case ProjectStatus.planned:
+        return 'Planeado';
+      case ProjectStatus.completed:
+        return 'Completado';
+      case ProjectStatus.archived:
+        return 'Archivado';
     }
   }
 
@@ -47,7 +59,7 @@ class ProjectCard extends StatelessWidget {
     final progressPercent = (project.progress * 100).toInt();
 
     return Dismissible(
-      key: Key(project.id),
+      key: Key(project.id.toString()),
       direction: DismissDirection.endToStart,
       background: Container(
         alignment: Alignment.centerRight,

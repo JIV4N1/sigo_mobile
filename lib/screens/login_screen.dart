@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 import '../services/auth_service.dart';
 import '../services/api_service.dart';
-import '../config/api_config.dart';
+import '../services/api_config.dart';
 import 'projects_dashboard.dart';
 
 /// Pantalla de inicio de sesión con autenticación real via Laravel Sanctum.
