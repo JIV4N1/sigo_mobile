@@ -9,7 +9,7 @@ class ResumenJornada extends StatelessWidget {
 
   String _formatTime(DateTime? time) {
     if (time == null) return 'Pendiente';
-    return DateFormat('hh:mm a').format(time);
+    return DateFormat('hh:mm a').format(time.toLocal());
   }
 
   @override

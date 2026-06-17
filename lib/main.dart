@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'services/auth_service.dart';
 import 'services/navigation_service.dart';
 import 'screens/login_screen.dart';
@@ -7,6 +9,10 @@ import 'screens/projects_dashboard.dart';
 void main() async {
   // Necesario antes de usar plugins como SharedPreferences
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Inicializar localizaciones para fechas en español
+  await initializeDateFormatting('es_ES', null);
+  
   runApp(const SigoApp());
 }
 
@@ -18,6 +24,15 @@ class SigoApp extends StatelessWidget {
     return MaterialApp(
       title: 'SIGO',
       debugShowCheckedModeBanner: false,
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: const [
+        Locale('es', 'ES'), // Español
+        Locale('en', 'US'), // Inglés
+      ],
       // navigatorKey global para manejo de logout desde ApiService
       navigatorKey: NavigationService.navigatorKey,
       theme: ThemeData(

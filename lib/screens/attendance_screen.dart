@@ -52,11 +52,22 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       // Parsear registro de hoy
       final hoyData = hoyResponse['data'];
       RegistroAsistencia registro;
-      if (hoyData != null) {
-        registro = RegistroAsistencia.fromJson(
-            hoyData is Map ? hoyData as Map<String, dynamic> : {});
+      if (hoyData != null && hoyData['registro'] != null) {
+        // La API devuelve el estado fuera de 'registro' en algunos casos
+        final mapData = Map<String, dynamic>.from(hoyData['registro'] as Map);
+        // Inyectar el estado del root si no viene en registro
+        if (!mapData.containsKey('estado') && hoyData.containsKey('estado')) {
+          mapData['estado'] = hoyData['estado'];
+        }
+        registro = RegistroAsistencia.fromJson(mapData);
+      } else if (hoyData != null && hoyData['id'] != null) {
+        // En caso de que venga directo en data
+        registro = RegistroAsistencia.fromJson(hoyData as Map<String, dynamic>);
       } else {
-        registro = RegistroAsistencia(fecha: DateTime.now());
+        registro = RegistroAsistencia(
+          fecha: DateTime.now(),
+          estado: hoyData != null && hoyData['estado'] != null ? hoyData['estado'] as String : 'sin_registrar',
+        );
       }
 
       // Parsear historial
@@ -82,12 +93,15 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         _hasError = true;
         _errorMessage = e.message;
       });
-    } catch (e) {
+    } catch (e, stackTrace) {
+      print('=== ERROR CARGANDO ASISTENCIA ===');
+      print(e);
+      print(stackTrace);
       if (!mounted) return;
       setState(() {
         _isLoading = false;
         _hasError = true;
-        _errorMessage = 'Error inesperado al cargar asistencia.';
+        _errorMessage = 'Error inesperado al cargar asistencia.\n${e.toString()}';
       });
     }
   }
