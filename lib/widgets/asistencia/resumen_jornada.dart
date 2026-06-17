@@ -12,12 +12,6 @@ class ResumenJornada extends StatelessWidget {
     return DateFormat('hh:mm a').format(time);
   }
 
-  String _formatDuration(Duration duration) {
-    final hours = duration.inHours;
-    final minutes = duration.inMinutes.remainder(60);
-    return '${hours}h ${minutes}m';
-  }
-
   @override
   Widget build(BuildContext context) {
     return Card(
@@ -62,7 +56,7 @@ class ResumenJornada extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       Text(
-                        _formatDuration(registro.horasTrabajadas),
+                        registro.horasTrabajadas ?? '00:00',
                         style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Color(0xFF1A237E)),
                       ),
                       const SizedBox(height: 4),

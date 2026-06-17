@@ -1,65 +1,62 @@
 /// Modelo de registro de asistencia del día actual.
 class RegistroAsistencia {
   final int? id;
+  final int? usuarioId;
+  final int? empresaId;
   final DateTime fecha;
   final DateTime? entrada;
   final DateTime? inicioComida;
   final DateTime? finComida;
   final DateTime? salida;
+  final double? latitudEntrada;
+  final double? longitudEntrada;
+  final double? latitudSalida;
+  final double? longitudSalida;
+  final String? horasTrabajadas;
+  final String? estado;
 
   RegistroAsistencia({
     this.id,
+    this.usuarioId,
+    this.empresaId,
     required this.fecha,
     this.entrada,
     this.inicioComida,
     this.finComida,
     this.salida,
+    this.latitudEntrada,
+    this.longitudEntrada,
+    this.latitudSalida,
+    this.longitudSalida,
+    this.horasTrabajadas,
+    this.estado,
   });
-
-  bool get haEntrado => entrada != null;
-  bool get haIniciadoComida => inicioComida != null;
-  bool get haTerminadoComida => finComida != null;
-  bool get haSalido => salida != null;
-
-  String get estadoActual {
-    if (haSalido) return 'Jornada finalizada';
-    if (haIniciadoComida && !haTerminadoComida) return 'En horario de comida';
-    if (haEntrado && !haSalido) return 'En jornada laboral';
-    return 'Fuera de jornada';
-  }
-
-  Duration get horasTrabajadas {
-    if (!haEntrado) return Duration.zero;
-
-    DateTime endTime = salida ?? DateTime.now();
-    Duration total = endTime.difference(entrada!);
-
-    if (haIniciadoComida) {
-      DateTime finDescanso = finComida ?? DateTime.now();
-      Duration descanso = finDescanso.difference(inicioComida!);
-      total = total - descanso;
-    }
-
-    return total;
-  }
 
   /// Crea un [RegistroAsistencia] a partir del JSON de la API.
   factory RegistroAsistencia.fromJson(Map<String, dynamic> json) {
     return RegistroAsistencia(
       id: (json['id'] as num?)?.toInt(),
+      usuarioId: (json['usuario_id'] as num?)?.toInt(),
+      empresaId: (json['empresa_id'] as num?)?.toInt(),
       fecha: DateTime.tryParse(json['fecha'] as String? ?? '') ?? DateTime.now(),
-      entrada: json['hora_entrada'] != null
-          ? DateTime.tryParse(json['hora_entrada'] as String)
+      entrada: json['entrada'] != null
+          ? DateTime.tryParse(json['entrada'] as String)
           : null,
-      inicioComida: json['hora_inicio_comida'] != null
-          ? DateTime.tryParse(json['hora_inicio_comida'] as String)
+      inicioComida: json['comida_inicio'] != null
+          ? DateTime.tryParse(json['comida_inicio'] as String)
           : null,
-      finComida: json['hora_fin_comida'] != null
-          ? DateTime.tryParse(json['hora_fin_comida'] as String)
+      finComida: json['comida_fin'] != null
+          ? DateTime.tryParse(json['comida_fin'] as String)
           : null,
-      salida: json['hora_salida'] != null
-          ? DateTime.tryParse(json['hora_salida'] as String)
+      salida: json['salida'] != null
+          ? DateTime.tryParse(json['salida'] as String)
           : null,
+      latitudEntrada: (json['latitud_entrada'] as num?)?.toDouble(),
+      longitudEntrada: (json['longitud_entrada'] as num?)?.toDouble(),
+      latitudSalida: (json['latitud_salida'] as num?)?.toDouble(),
+      longitudSalida: (json['longitud_salida'] as num?)?.toDouble(),
+      horasTrabajadas: json['horas_trabajadas'] as String?,
+      estado: json['estado'] as String?,
     );
   }
 }

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import '../models/asistencia_model.dart';
-import '../services/api_service.dart';
-import '../config/api_config.dart';
+import '../services/api_service.dart'; // Mantener si hay otros usos, si no se eliminará al limpiar.
+import '../services/asistencia_service.dart';
 import '../widgets/asistencia/reloj_widget.dart';
 import '../widgets/asistencia/boton_asistencia.dart';
 import '../widgets/asistencia/resumen_jornada.dart';
@@ -42,8 +42,8 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     try {
       // Cargar estado del día actual y el historial en paralelo
       final results = await Future.wait([
-        ApiService.get(ApiConfig.asistenciaHoy),
-        ApiService.get(ApiConfig.asistenciaHistorial),
+        AsistenciaService.getEstadoHoy(),
+        AsistenciaService.getHistorial(),
       ]);
 
       final hoyResponse = results[0];
@@ -139,41 +139,34 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       };
 
       // Seleccionar el endpoint según el tipo de acción
-      String url;
       switch (tipoAccion) {
         case 'entrada':
-          url = ApiConfig.asistenciaEntrada;
+          await AsistenciaService.registrarEntrada(
+            latitud: position?.latitude,
+            longitud: position?.longitude,
+          );
           break;
         case 'inicio_comida':
-          url = ApiConfig.asistenciaComidaInicio;
+          await AsistenciaService.iniciarComida();
           break;
         case 'fin_comida':
-          url = ApiConfig.asistenciaComidaFin;
+          await AsistenciaService.finalizarComida();
           break;
         case 'salida':
-          url = ApiConfig.asistenciaSalida;
+          await AsistenciaService.registrarSalida(
+            latitud: position?.latitude,
+            longitud: position?.longitude,
+          );
           break;
         default:
           throw Exception('Tipo de acción desconocido: $tipoAccion');
       }
 
-      final response = await ApiService.post(url, body: body);
-
-      // La respuesta debe contener el registro actualizado
-      final data = response['data'];
-      RegistroAsistencia updatedRegistro;
-      if (data != null && data is Map) {
-        updatedRegistro = RegistroAsistencia.fromJson(
-            data as Map<String, dynamic>);
-      } else {
-        // Actualización optimista si la API no retorna el objeto
-        updatedRegistro = _buildOptimisticRegistro(tipoAccion);
-      }
+      // Recargar datos desde la API para tener el estado fresco
+      await _cargarDatos();
 
       if (!mounted) return;
       Navigator.pop(context); // Cerrar loader
-
-      setState(() => _registroHoy = updatedRegistro);
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -206,36 +199,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     }
   }
 
-  /// Actualización optimista del registro si la API no retorna el objeto actualizado.
-  RegistroAsistencia _buildOptimisticRegistro(String tipoAccion) {
-    final now = DateTime.now();
-    switch (tipoAccion) {
-      case 'entrada':
-        return RegistroAsistencia(
-            fecha: _registroHoy.fecha,
-            entrada: now);
-      case 'inicio_comida':
-        return RegistroAsistencia(
-            fecha: _registroHoy.fecha,
-            entrada: _registroHoy.entrada,
-            inicioComida: now);
-      case 'fin_comida':
-        return RegistroAsistencia(
-            fecha: _registroHoy.fecha,
-            entrada: _registroHoy.entrada,
-            inicioComida: _registroHoy.inicioComida,
-            finComida: now);
-      case 'salida':
-        return RegistroAsistencia(
-            fecha: _registroHoy.fecha,
-            entrada: _registroHoy.entrada,
-            inicioComida: _registroHoy.inicioComida,
-            finComida: _registroHoy.finComida,
-            salida: now);
-      default:
-        return _registroHoy;
-    }
-  }
+  // Actualización optimista eliminada a favor de recargar desde el API
 
   String _getActionLabel(String tipoAccion) {
     switch (tipoAccion) {
@@ -250,22 +214,28 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   Widget _buildEstadoChip() {
     Color color;
     IconData icono;
-    switch (_registroHoy.estadoActual) {
-      case 'En jornada laboral':
+    String label = 'Sin registrar';
+    switch (_registroHoy.estado) {
+      case 'en_jornada':
         color = Colors.green;
         icono = Icons.work;
+        label = 'En jornada laboral';
         break;
-      case 'En horario de comida':
+      case 'en_comida':
         color = Colors.orange;
         icono = Icons.restaurant;
+        label = 'En horario de comida';
         break;
-      case 'Jornada finalizada':
+      case 'finalizada':
         color = Colors.red;
         icono = Icons.done_all;
+        label = 'Jornada finalizada';
         break;
+      case 'sin_registrar':
       default:
         color = Colors.grey;
         icono = Icons.access_time;
+        label = 'Sin registrar';
     }
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -278,7 +248,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         Icon(icono, color: color, size: 20),
         const SizedBox(width: 8),
         Text(
-          _registroHoy.estadoActual,
+          label,
           style: TextStyle(color: color, fontWeight: FontWeight.bold),
         ),
       ]),
@@ -361,41 +331,32 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                   titulo: 'Registrar Entrada',
                   icono: Icons.login,
                   colorBase: Colors.green[800]!,
-                  habilitado: !_registroHoy.haEntrado,
-                  subtitulo: _registroHoy.haEntrado ? 'Registrado' : null,
+                  habilitado: _registroHoy.estado == 'sin_registrar' || _registroHoy.estado == null,
+                  subtitulo: (_registroHoy.estado != 'sin_registrar' && _registroHoy.estado != null) ? 'Registrado' : null,
                   onPressed: () => _registrarAccion('entrada'),
                 ),
                 BotonAsistencia(
                   titulo: 'Iniciar Comida',
                   icono: Icons.restaurant,
                   colorBase: const Color(0xFFFF6D00),
-                  habilitado: _registroHoy.haEntrado &&
-                      !_registroHoy.haIniciadoComida &&
-                      !_registroHoy.haSalido,
-                  subtitulo:
-                      _registroHoy.haIniciadoComida ? 'Inició' : null,
+                  habilitado: _registroHoy.estado == 'en_jornada' && _registroHoy.inicioComida == null,
+                  subtitulo: _registroHoy.inicioComida != null ? 'Inició' : null,
                   onPressed: () => _registrarAccion('inicio_comida'),
                 ),
                 BotonAsistencia(
                   titulo: 'Fin de Comida',
                   icono: Icons.restaurant_menu,
                   colorBase: Colors.blue[800]!,
-                  habilitado: _registroHoy.haIniciadoComida &&
-                      !_registroHoy.haTerminadoComida &&
-                      !_registroHoy.haSalido,
-                  subtitulo: _registroHoy.haTerminadoComida
-                      ? 'Terminó'
-                      : null,
+                  habilitado: _registroHoy.estado == 'en_comida',
+                  subtitulo: _registroHoy.finComida != null ? 'Terminó' : null,
                   onPressed: () => _registrarAccion('fin_comida'),
                 ),
                 BotonAsistencia(
                   titulo: 'Registrar Salida',
                   icono: Icons.logout,
                   colorBase: Colors.red[800]!,
-                  habilitado: _registroHoy.haEntrado &&
-                      !_registroHoy.haSalido,
-                  subtitulo:
-                      _registroHoy.haSalido ? 'Registrado' : null,
+                  habilitado: _registroHoy.estado == 'en_jornada',
+                  subtitulo: _registroHoy.estado == 'finalizada' ? 'Registrado' : null,
                   onPressed: () => _registrarAccion('salida'),
                 ),
               ],
