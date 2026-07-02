@@ -55,8 +55,10 @@ class RegistroAsistencia {
       longitudEntrada: (json['longitud_entrada'] as num?)?.toDouble(),
       latitudSalida: (json['latitud_salida'] as num?)?.toDouble(),
       longitudSalida: (json['longitud_salida'] as num?)?.toDouble(),
-      horasTrabajadas: json['horas_trabajadas'] as String?,
-      estado: json['estado'] as String?,
+      horasTrabajadas: json['horas_trabajadas'] is num 
+          ? '${(json['horas_trabajadas'] as num).toInt()}h ${(((json['horas_trabajadas'] as num) % 1) * 60).round()}m'
+          : json['horas_trabajadas']?.toString(),
+      estado: json['estado']?.toString(),
     );
   }
 }
