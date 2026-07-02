@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../models/project_model.dart';
 import '../../theme/app_colors.dart';
+import '../project_role_badge.dart';
 
 class ProjectHeader extends StatelessWidget {
   final Project project;
@@ -95,6 +96,8 @@ class ProjectHeader extends StatelessWidget {
                             style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
                           ),
                         ),
+                        if (project.miRol != null && project.miRol!.isNotEmpty) const SizedBox(width: 8),
+                        if (project.miRol != null && project.miRol!.isNotEmpty) ProjectRoleBadge(role: project.miRol),
                       ],
                     ),
                     const SizedBox(height: 8),

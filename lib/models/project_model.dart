@@ -60,6 +60,7 @@ class Project {
   final String contract;
   final String budget;
   final String manager;
+  final String? miRol;
 
   Project({
     required this.id,
@@ -82,7 +83,30 @@ class Project {
     required this.contract,
     required this.budget,
     required this.manager,
+    this.miRol,
   });
+
+  /// Retorna las acciones permitidas para el usuario actual en base a `miRol`
+  List<String> getAccionesPermitidas() {
+    final rol = miRol?.toLowerCase() ?? '';
+    if (rol == 'supervisor') {
+      return ['reporte_diario', 'incidencias', 'asistencia'];
+    } else if (rol == 'ingeniero') {
+      return ['atender_incidencias', 'asistencia'];
+    } else if (rol == 'gerente') {
+      return ['kpis', 'validar_reportes', 'asignar_incidencias'];
+    } else if (rol == 'administrador') {
+      return [
+        'reporte_diario',
+        'incidencias',
+        'asistencia',
+        'kpis',
+        'validar_reportes',
+        'asignar_incidencias'
+      ];
+    }
+    return ['incidencias', 'asistencia']; // Acciones por defecto
+  }
 
   /// Convierte el string de estado del backend al enum [ProjectStatus].
   static ProjectStatus _parseStatus(String? raw) {
@@ -182,6 +206,7 @@ class Project {
       contract: json['contrato'] as String? ?? json['codigo_contrato'] as String? ?? '',
       budget: json['presupuesto'] as String? ?? json['budget'] as String? ?? '',
       manager: managerName,
+      miRol: json['mi_rol'] as String?,
     );
   }
 }

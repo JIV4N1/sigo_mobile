@@ -7,7 +7,7 @@ import '../config/api_config.dart';
 import '../widgets/project_detail/project_header.dart';
 import '../widgets/project_detail/kpi_cards_row.dart';
 import '../widgets/project_detail/trend_chart_card.dart';
-import '../widgets/project_detail/quick_actions_grid.dart';
+import '../widgets/project_detail/project_action_buttons.dart';
 import '../widgets/project_detail/activity_timeline.dart';
 import '../widgets/project_detail/project_info_card.dart';
 
@@ -130,7 +130,7 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
                 ),
                 SliverToBoxAdapter(child: KPICardsRow(project: _project)),
                 SliverToBoxAdapter(child: TrendChartCard(project: _project)),
-                const SliverToBoxAdapter(child: QuickActionsGrid()),
+                SliverToBoxAdapter(child: ProjectActionButtons(project: _project)),
                 SliverToBoxAdapter(
                   child: ActivityTimeline(activities: _project.timeline),
                 ),

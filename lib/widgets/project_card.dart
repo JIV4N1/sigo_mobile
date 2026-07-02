@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/project_model.dart';
 import '../theme/app_colors.dart';
+import 'project_role_badge.dart';
 
 class ProjectCard extends StatelessWidget {
   final Project project;
@@ -137,24 +138,31 @@ class ProjectCard extends StatelessWidget {
                                 ),
                               ),
                               const SizedBox(width: 8),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 4,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: statusColor.withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(16),
-                                  border: Border.all(color: statusColor, width: 1),
-                                ),
-                                child: Text(
-                                  _getStatusText(),
-                                  style: TextStyle(
-                                    color: statusColor,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 4,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: statusColor.withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(16),
+                                      border: Border.all(color: statusColor, width: 1),
+                                    ),
+                                    child: Text(
+                                      _getStatusText(),
+                                      style: TextStyle(
+                                        color: statusColor,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
                                   ),
-                                ),
+                                  if (project.miRol != null && project.miRol!.isNotEmpty) const SizedBox(height: 4),
+                                  if (project.miRol != null && project.miRol!.isNotEmpty) ProjectRoleBadge(role: project.miRol),
+                                ],
                               ),
                             ],
                           ),

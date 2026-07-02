@@ -6,6 +6,7 @@ import '../widgets/shimmer_loading.dart';
 import '../widgets/sigo_bottom_nav_bar.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
+import '../services/project_service.dart';
 import '../config/api_config.dart';
 import 'issues_list_screen.dart';
 import 'project_detail_screen.dart';
@@ -67,23 +68,7 @@ class _ProjectsDashboardState extends State<ProjectsDashboard> {
     });
 
     try {
-      final response = await ApiService.get(ApiConfig.proyectos);
-
-      // La API retorna: { "status": "success", "data": [...] }
-      final rawData = response['data'];
-      List<dynamic> list;
-      if (rawData is List) {
-        list = rawData;
-      } else if (rawData is Map && rawData.containsKey('data')) {
-        // Paginación: { "data": { "data": [...] } }
-        list = rawData['data'] as List<dynamic>? ?? [];
-      } else {
-        list = [];
-      }
-
-      final projects = list
-          .map((e) => Project.fromJson(e as Map<String, dynamic>))
-          .toList();
+      final projects = await ProjectService.getProyectosAsignados();
 
       if (!mounted) return;
       setState(() {
@@ -474,7 +459,7 @@ class _ProjectsDashboardState extends State<ProjectsDashboard> {
                   ? 'No hay proyectos con estado "$_selectedStatusFilter"'
                   : _searchController.text.isNotEmpty
                       ? 'No se encontraron proyectos'
-                      : 'No tienes proyectos asignados',
+                      : 'No tienes obras asignadas',
               textAlign: TextAlign.center,
               style:
                   const TextStyle(fontSize: 16, color: AppColors.textMedium),
