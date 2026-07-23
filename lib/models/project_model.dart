@@ -130,14 +130,15 @@ class Project {
 
   /// Crea un [Project] a partir del JSON de la API.
   factory Project.fromJson(Map<String, dynamic> json) {
-    // Fechas
-    final startDate = DateTime.tryParse(
-            json['fecha_inicio'] as String? ?? '') ??
-        DateTime.now();
-    final endDate = DateTime.tryParse(
-            json['fecha_fin'] as String? ?? '') ??
-        DateTime.now().add(const Duration(days: 30));
-    final now = DateTime.now();
+    try {
+      // Fechas
+      final startDate = DateTime.tryParse(
+              json['fecha_inicio']?.toString() ?? '') ??
+          DateTime.now();
+      final endDate = DateTime.tryParse(
+              json['fecha_fin']?.toString() ?? '') ??
+          DateTime.now().add(const Duration(days: 30));
+      final now = DateTime.now();
 
     // Días transcurridos y totales
     final daysElapsed = now.isAfter(startDate)
@@ -151,20 +152,20 @@ class Project {
         ? (rawProgress > 1 ? rawProgress / 100 : rawProgress)
         : (rawProgress as num).toDouble() / 100;
 
-    // Actividad reciente
-    final actividadRaw = json['actividad'] as List<dynamic>? ?? [];
-    final timeline = actividadRaw
-        .map((e) => ProjectActivity.fromJson(e as Map<String, dynamic>))
-        .toList();
+      // Actividad reciente
+      final actividadRaw = json['actividad'] as List<dynamic>? ?? [];
+      final timeline = actividadRaw
+          .map((e) => ProjectActivity.fromJson(e as Map<String, dynamic>))
+          .toList();
 
-    // Progreso semanal
-    final semanalRaw = json['progreso_semanal'] as List<dynamic>? ?? [];
-    final weeklyProgress = semanalRaw
-        .map((e) {
-          final v = (e as num).toDouble();
-          return v > 1 ? v / 100 : v;
-        })
-        .toList();
+      // Progreso semanal
+      final semanalRaw = json['progreso_semanal'] as List<dynamic>? ?? [];
+      final weeklyProgress = semanalRaw
+          .map((e) {
+            final v = (e as num).toDouble();
+            return v > 1 ? v / 100 : v;
+          })
+          .toList();
 
     // Cliente — puede ser objeto o string
     final clienteRaw = json['cliente'];
@@ -185,11 +186,11 @@ class Project {
       managerName = gerenteRaw as String? ?? '';
     }
 
-    return Project(
-      id: (json['id'] as num?)?.toInt() ?? 0,
-      name: json['nombre'] as String? ?? json['name'] as String? ?? '',
-      status: _parseStatus(json['estado'] as String?),
-      location: json['ubicacion'] as String? ?? json['location'] as String? ?? '',
+      return Project(
+        id: (json['id'] as num?)?.toInt() ?? 0,
+        name: json['nombre']?.toString() ?? json['name']?.toString() ?? '',
+        status: _parseStatus(json['estado']?.toString()),
+        location: json['ubicacion']?.toString() ?? json['location']?.toString() ?? '',
       startDate: startDate,
       endDate: endDate,
       progress: progress.clamp(0.0, 1.0),
@@ -203,10 +204,15 @@ class Project {
       weeklyProgress: weeklyProgress,
       timeline: timeline,
       client: clientName,
-      contract: json['contrato'] as String? ?? json['codigo_contrato'] as String? ?? '',
-      budget: json['presupuesto'] as String? ?? json['budget'] as String? ?? '',
+      contract: json['contrato']?.toString() ?? json['codigo_contrato']?.toString() ?? '',
+      budget: json['presupuesto']?.toString() ?? json['budget']?.toString() ?? '',
       manager: managerName,
-      miRol: json['mi_rol'] as String?,
+      miRol: json['mi_rol']?.toString(),
     );
+    } catch (e, stackTrace) {
+      debugPrint('Error parseando Project: $e\n$stackTrace');
+      debugPrint('JSON problemático: $json');
+      rethrow;
+    }
   }
 }

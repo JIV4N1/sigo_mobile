@@ -165,6 +165,17 @@ class _ReportFormScreenState extends State<ReportFormScreen> {
 
   // ─── Guardado con API ─────────────────────────────────────────────────────────
 
+  String _getApiCategory(String category) {
+    switch (category) {
+      case 'Estructural': return 'estructural';
+      case 'Albañilería': return 'albanileria';
+      case 'Instalaciones': return 'instalaciones';
+      case 'Acabados': return 'acabados';
+      case 'General': return 'general';
+      default: return 'general';
+    }
+  }
+
   Future<void> _saveReport() async {
     if (!_isFormValid()) return;
     setState(() => _isSaving = true);
@@ -175,16 +186,23 @@ class _ReportFormScreenState extends State<ReportFormScreen> {
           .map((p) => p.path)
           .toList();
 
-      final fields = {
+      final fields = <String, String>{
         'proyecto_id': _selectedProject!.id.toString(),
-        'fecha': '${_selectedDate.year}-${_selectedDate.month.toString().padLeft(2, '0')}-${_selectedDate.day.toString().padLeft(2, '0')}',
-        'turno': _selectedShift!,
-        'categoria': _selectedCategory!,
-        'porcentaje_avance': _progress.toString(),
+        'fecha_reporte': '${_selectedDate.year}-${_selectedDate.month.toString().padLeft(2, '0')}-${_selectedDate.day.toString().padLeft(2, '0')}',
+        'turno': _selectedShift!.toLowerCase(),
+        'categoria': _getApiCategory(_selectedCategory!),
+        'avance': _progress.toString(),
         'descripcion': _descController.text,
       };
 
       if (photoPaths.isNotEmpty) {
+        // Añadir metadata de fotos
+        for (int i = 0; i < photoPaths.length; i++) {
+          final p = _photos.firstWhere((photo) => photo.path == photoPaths[i]);
+          fields['descripciones[$i]'] = p.description.isNotEmpty ? p.description : 'Evidencia de reporte';
+          fields['categorias[$i]'] = p.category.isNotEmpty ? _getApiCategory(p.category) : _getApiCategory(_selectedCategory!);
+        }
+
         // POST multipart con fotos incluidas
         await ApiService.postMultipart(
           ApiConfig.reportes,
@@ -198,7 +216,7 @@ class _ReportFormScreenState extends State<ReportFormScreen> {
           ApiConfig.reportes,
           body: {
             ...fields,
-            'porcentaje_avance': _progress,
+            'avance': _progress,
           },
         );
       }
@@ -227,10 +245,25 @@ class _ReportFormScreenState extends State<ReportFormScreen> {
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() => _isSaving = false);
+
+      String errorMsg = e.message;
+      if (e.errors != null && e.errors!.isNotEmpty) {
+        final List<String> msgs = [];
+        e.errors!.forEach((key, value) {
+          if (value is List) {
+            msgs.addAll(value.map((v) => v.toString()));
+          } else {
+            msgs.add(value.toString());
+          }
+        });
+        errorMsg = msgs.join('\n');
+      }
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(e.message),
+          content: Text(errorMsg),
           backgroundColor: AppColors.critical,
+          duration: const Duration(seconds: 4),
         ),
       );
     } catch (e) {

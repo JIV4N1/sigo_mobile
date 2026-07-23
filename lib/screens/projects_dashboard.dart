@@ -68,7 +68,9 @@ class _ProjectsDashboardState extends State<ProjectsDashboard> {
     });
 
     try {
+      debugPrint('Iniciando carga de proyectos asignados...');
       final projects = await ProjectService.getProyectosAsignados();
+      debugPrint('Proyectos cargados exitosamente: ${projects.length}');
 
       if (!mounted) return;
       setState(() {
@@ -78,18 +80,20 @@ class _ProjectsDashboardState extends State<ProjectsDashboard> {
       });
       _applySearch();
     } on ApiException catch (e) {
+      debugPrint('ApiException al cargar proyectos: ${e.message}');
       if (!mounted) return;
       setState(() {
         _isLoading = false;
         _hasError = true;
         _errorMessage = e.message;
       });
-    } catch (e) {
+    } catch (e, stackTrace) {
+      debugPrint('Error inesperado al cargar proyectos: $e\n$stackTrace');
       if (!mounted) return;
       setState(() {
         _isLoading = false;
         _hasError = true;
-        _errorMessage = 'Error inesperado al cargar proyectos.';
+        _errorMessage = 'Error inesperado al cargar proyectos: $e';
       });
     }
   }
