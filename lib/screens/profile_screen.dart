@@ -1,12 +1,16 @@
+// lib/screens/profile_screen.dart
 import 'package:flutter/material.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import '../models/user_profile_model.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
 import '../config/api_config.dart';
+import '../theme/app_colors.dart';
 import '../widgets/profile/perfil_header.dart';
 import '../widgets/profile/info_personal_card.dart';
 import '../widgets/profile/proyectos_card.dart';
 import '../widgets/profile/preferencias_card.dart';
+import '../widgets/sigo_button.dart';
 import 'login_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -21,11 +25,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _hasError = false;
   String _errorMessage = '';
   UserProfile? _userProfile;
+  String _appVersion = '1.0.0';
+  bool _showFullImage = false;
 
   @override
   void initState() {
     super.initState();
     _loadUserProfile();
+    _cargarVersionApp();
+  }
+
+  // ─── Cargar versión de la app ───────────────────────────────────────────────
+
+  Future<void> _cargarVersionApp() async {
+    try {
+      final packageInfo = await PackageInfo.fromPlatform();
+      setState(() {
+        _appVersion = packageInfo.version;
+      });
+    } catch (e) {
+      // Si falla, usar versión por defecto
+      setState(() {
+        _appVersion = '1.0.0';
+      });
+    }
   }
 
   // ─── Carga de perfil ──────────────────────────────────────────────────────────
@@ -110,7 +133,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Perfil actualizado correctamente'),
-          backgroundColor: Color(0xFF2E7D32),
+          backgroundColor: AppColors.success,
         ),
       );
     } on ApiException catch (e) {
@@ -118,8 +141,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
       Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-            content: Text(e.message),
-            backgroundColor: const Color(0xFFC62828)),
+          content: Text(e.message),
+          backgroundColor: Theme.of(context).colorScheme.error,
+        ),
       );
     } catch (_) {
       if (!mounted) return;
@@ -134,19 +158,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
       context: context,
       builder: (_) => AlertDialog(
         title: const Text('Cerrar Sesión'),
-        content:
-            const Text('¿Estás seguro de que deseas cerrar tu sesión?'),
+        content: const Text('¿Estás seguro de que deseas cerrar tu sesión?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
             child: const Text('Cancelar'),
           ),
-          ElevatedButton(
-            style:
-                ElevatedButton.styleFrom(backgroundColor: Colors.red),
+          SigoButton(
+            label: 'Cerrar Sesión',
+            type: SigoButtonType.danger,
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Cerrar Sesión',
-                style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -183,7 +204,183 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<void> _cambiarFoto() async {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-          content: Text('Funcionalidad de cambio de foto próximamente')),
+        content: Text('Funcionalidad de cambio de foto próximamente'),
+      ),
+    );
+  }
+
+  // ─── Mostrar imagen en grande al hacer doble tap ────────────────────────────
+
+  void _mostrarImagenCompleta() {
+    setState(() {
+      _showFullImage = !_showFullImage;
+    });
+
+    if (_showFullImage) {
+      showDialog(
+        context: context,
+        barrierDismissible: true,
+        builder: (context) => Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.all(20),
+          child: GestureDetector(
+            onTap: () {
+              setState(() {
+                _showFullImage = false;
+              });
+              Navigator.pop(context);
+            },
+            child: Container(
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surface,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Título
+                  Text(
+                    'SIGO',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  
+                  // Imagen grande
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Image.asset(
+                      'assets/images/hola.jpg',
+                      height: 200,
+                      width: 200,
+                      fit: BoxFit.contain,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Container(
+                          height: 200,
+                          width: 200,
+                          decoration: BoxDecoration(
+                            color: Colors.grey[200],
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Icon(
+                            Icons.construction,
+                            size: 80,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 16),
+                  
+                  // Texto de versión
+                  Text(
+                    'Versión $_appVersion',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      color: Colors.grey,
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 8),
+                  
+                  // Año
+                  const Text(
+                    '© 2026 SIGO - Todos los derechos reservados',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey,
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 16),
+                  
+                  // Botón cerrar
+                  SigoButton(
+                    label: 'Cerrar',
+                    type: SigoButtonType.accent,
+                    onPressed: () {
+                      setState(() {
+                        _showFullImage = false;
+                      });
+                      Navigator.pop(context);
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+  }
+
+  // ─── Widget de versión con imagen y doble tap ──────────────────────────────
+
+  Widget _buildVersionItem() {
+    final theme = Theme.of(context);
+    return GestureDetector(
+      onDoubleTap: _mostrarImagenCompleta,
+      child: ListTile(
+        leading: const Icon(Icons.info_outline),
+        title: const Text('Versión de la app'),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Imagen pequeña junto al texto de versión
+            ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: Image.asset(
+                'assets/images/hola.jpg',
+                height: 20,
+                width: 20,
+                fit: BoxFit.contain,
+                errorBuilder: (context, error, stackTrace) {
+                  return Container(
+                    height: 20,
+                    width: 20,
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.primary.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Icon(
+                      Icons.construction,
+                      size: 14,
+                      color: theme.colorScheme.primary,
+                    ),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              'v$_appVersion',
+              style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.6)),
+            ),
+            const SizedBox(width: 4),
+            Icon(
+              Icons.info_outline,
+              size: 16,
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+            ),
+          ],
+        ),
+        onTap: () {
+          // Un solo tap muestra la imagen en pequeño (ya está visible)
+          // o podría mostrar un SnackBar
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Haz doble tap para ver la imagen completa'),
+              duration: Duration(seconds: 2),
+            ),
+          );
+        },
+      ),
     );
   }
 
@@ -191,10 +388,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     if (_isLoading && _userProfile == null) {
-      return const Scaffold(
+      return Scaffold(
         body: Center(
-            child: CircularProgressIndicator(color: Color(0xFFFF6D00))),
+          child: CircularProgressIndicator(color: theme.colorScheme.secondary),
+        ),
       );
     }
 
@@ -207,17 +407,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.error_outline,
-                    size: 64, color: Color(0xFFC62828)),
+                Icon(Icons.error_outline, size: 64, color: theme.colorScheme.error),
                 const SizedBox(height: 16),
                 Text(_errorMessage,
                     textAlign: TextAlign.center,
                     style: const TextStyle(fontSize: 16)),
                 const SizedBox(height: 16),
-                ElevatedButton(
-                  onPressed: _loadUserProfile,
-                  child: const Text('Reintentar'),
-                ),
+                SigoButton(label: 'Reintentar', onPressed: _loadUserProfile),
               ],
             ),
           ),
@@ -226,7 +422,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
 
     return Scaffold(
-      backgroundColor: Colors.grey[100],
       body: RefreshIndicator(
         onRefresh: _loadUserProfile,
         child: SingleChildScrollView(
@@ -255,48 +450,40 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   Card(
                     elevation: 2,
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
-                    child: const Column(children: [
-                      ListTile(
-                        leading: Icon(Icons.info_outline),
-                        title: Text('Versión de la app'),
-                        trailing: Text('v1.0.0',
-                            style: TextStyle(color: Colors.grey)),
-                      ),
-                      Divider(height: 1),
-                      ListTile(
-                        leading: Icon(Icons.description_outlined),
-                        title: Text('Términos y condiciones'),
-                        trailing: Icon(Icons.chevron_right,
-                            color: Colors.grey),
-                      ),
-                      Divider(height: 1),
-                      ListTile(
-                        leading: Icon(Icons.privacy_tip_outlined),
-                        title: Text('Política de privacidad'),
-                        trailing: Icon(Icons.chevron_right,
-                            color: Colors.grey),
-                      ),
-                    ]),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Column(
+                      children: [
+                        // Versión con imagen y doble tap
+                        _buildVersionItem(),
+                        const Divider(height: 1),
+                        ListTile(
+                          leading: const Icon(Icons.description_outlined),
+                          title: const Text('Términos y condiciones'),
+                          trailing: const Icon(Icons.chevron_right),
+                          onTap: () {
+                            // TODO: Navegar a términos y condiciones
+                          },
+                        ),
+                        const Divider(height: 1),
+                        ListTile(
+                          leading: const Icon(Icons.privacy_tip_outlined),
+                          title: const Text('Política de privacidad'),
+                          trailing: const Icon(Icons.chevron_right),
+                          onTap: () {
+                            // TODO: Navegar a política de privacidad
+                          },
+                        ),
+                      ],
+                    ),
                   ),
                   const SizedBox(height: 32),
-                  ElevatedButton.icon(
+                  SigoButton(
+                    label: 'Cerrar Sesión',
+                    icon: Icons.logout,
+                    type: SigoButtonType.danger,
+                    expand: true,
                     onPressed: _cerrarSesion,
-                    icon: const Icon(Icons.logout, color: Colors.white),
-                    label: const Text(
-                      'Cerrar Sesión',
-                      style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red[600],
-                      padding:
-                          const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12)),
-                    ),
                   ),
                   const SizedBox(height: 32),
                 ],

@@ -4,6 +4,7 @@ import '../../theme/app_colors.dart';
 import '../../screens/report_form_screen.dart';
 import '../../screens/issues_list_screen.dart';
 import '../../screens/validar_reportes_screen.dart';
+import '../../screens/gastos/gastos_list_screen.dart';
 
 class ProjectActionButtons extends StatelessWidget {
   final Project project;
@@ -42,7 +43,7 @@ class ProjectActionButtons extends StatelessWidget {
           bgColor: Colors.orange.shade50,
           fgColor: AppColors.accent,
           onTap: () {
-            Navigator.push(context, MaterialPageRoute(builder: (_) => const IssuesListScreen()));
+            Navigator.push(context, MaterialPageRoute(builder: (_) => IssuesListScreen(projectId: project.id)));
           },
         ),
       );
@@ -91,6 +92,20 @@ class ProjectActionButtons extends StatelessWidget {
           fgColor: Colors.teal,
           onTap: () {
             Navigator.push(context, MaterialPageRoute(builder: (_) => const ValidarReportesScreen()));
+          },
+        ),
+      );
+    }
+
+    if (allowedActions.contains('gastos_obra')) {
+      buttons.add(
+        _ActionBtn(
+          icon: Icons.receipt_long,
+          label: 'Gastos\nde Obra',
+          bgColor: Colors.red.shade50,
+          fgColor: AppColors.critical,
+          onTap: () {
+            Navigator.push(context, MaterialPageRoute(builder: (_) => GastosListScreen(projectId: project.id)));
           },
         ),
       );

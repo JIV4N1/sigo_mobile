@@ -90,11 +90,11 @@ class Project {
   List<String> getAccionesPermitidas() {
     final rol = miRol?.toLowerCase() ?? '';
     if (rol == 'supervisor') {
-      return ['reporte_diario', 'incidencias', 'asistencia'];
+      return ['reporte_diario', 'incidencias', 'asistencia', 'gastos_obra'];
     } else if (rol == 'ingeniero') {
-      return ['atender_incidencias', 'asistencia'];
+      return ['reporte_diario', 'atender_incidencias', 'asistencia', 'gastos_obra'];
     } else if (rol == 'gerente') {
-      return ['kpis', 'validar_reportes', 'asignar_incidencias'];
+      return ['kpis', 'validar_reportes', 'asignar_incidencias', 'gastos_obra'];
     } else if (rol == 'administrador') {
       return [
         'reporte_diario',
@@ -102,7 +102,8 @@ class Project {
         'asistencia',
         'kpis',
         'validar_reportes',
-        'asignar_incidencias'
+        'asignar_incidencias',
+        'gastos_obra'
       ];
     }
     return ['incidencias', 'asistencia']; // Acciones por defecto

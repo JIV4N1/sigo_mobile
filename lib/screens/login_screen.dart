@@ -3,6 +3,8 @@ import '../theme/app_colors.dart';
 import '../services/auth_service.dart';
 import '../services/api_service.dart';
 import '../services/api_config.dart';
+import '../widgets/sigo_button.dart';
+import '../widgets/sigo_input.dart';
 import 'projects_dashboard.dart';
 
 /// Pantalla de inicio de sesión con autenticación real via Laravel Sanctum.
@@ -114,7 +116,7 @@ class _LoginScreenState extends State<LoginScreen>
             Expanded(child: Text(message)),
           ],
         ),
-        backgroundColor: AppColors.critical,
+        backgroundColor: Theme.of(context).colorScheme.error,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
@@ -127,12 +129,13 @@ class _LoginScreenState extends State<LoginScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
+        // El fondo mantiene la marca (azul SIGO) en ambos modos: es una
+        // pantalla de splash/branding, no contenido que deba adaptarse.
         decoration: const BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [Color(0xFF1A237E), Color(0xFF283593), Color(0xFF3949AB)],
-            stops: [0.0, 0.5, 1.0],
+            colors: [AppColors.primary, AppColors.primaryLight],
           ),
         ),
         child: SafeArea(
@@ -156,7 +159,7 @@ class _LoginScreenState extends State<LoginScreen>
                       Text(
                         'Sistema Integral de Gestión de Obras v1.0',
                         style: TextStyle(
-                          color: Colors.white.withOpacity(0.5),
+                          color: Colors.white.withValues(alpha: 0.5),
                           fontSize: 11,
                         ),
                         textAlign: TextAlign.center,
@@ -178,9 +181,9 @@ class _LoginScreenState extends State<LoginScreen>
         Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.1),
+            color: Colors.white.withValues(alpha: 0.1),
             shape: BoxShape.circle,
-            border: Border.all(color: Colors.white.withOpacity(0.2), width: 2),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.2), width: 2),
           ),
           child: const Icon(
             Icons.apartment_rounded,
@@ -203,7 +206,7 @@ class _LoginScreenState extends State<LoginScreen>
           'Gestión de Obras',
           style: TextStyle(
             fontSize: 14,
-            color: Colors.white.withOpacity(0.75),
+            color: Colors.white.withValues(alpha: 0.75),
             letterSpacing: 1.5,
           ),
         ),
@@ -212,13 +215,14 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   Widget _buildLoginCard() {
+    final theme = Theme.of(context);
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.25),
+            color: Colors.black.withValues(alpha: 0.25),
             blurRadius: 30,
             offset: const Offset(0, 10),
           ),
@@ -230,12 +234,12 @@ class _LoginScreenState extends State<LoginScreen>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               'Iniciar Sesión',
               style: TextStyle(
                 fontSize: 22,
                 fontWeight: FontWeight.bold,
-                color: AppColors.textDark,
+                color: theme.colorScheme.onSurface,
               ),
             ),
             const SizedBox(height: 4),
@@ -243,31 +247,21 @@ class _LoginScreenState extends State<LoginScreen>
               'Ingresa con tus credenciales corporativas',
               style: TextStyle(
                 fontSize: 13,
-                color: AppColors.textMedium.withOpacity(0.8),
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
               ),
             ),
             const SizedBox(height: 28),
 
             // ── Email ──────────────────────────────────────────────────────────
-            const Text(
-              'Correo electrónico',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: AppColors.textDark,
-              ),
-            ),
-            const SizedBox(height: 8),
-            TextFormField(
+            SigoInput(
               controller: _emailController,
+              label: 'Correo electrónico',
+              hint: 'usuario@empresa.com',
+              prefixIcon: Icons.email_outlined,
               keyboardType: TextInputType.emailAddress,
               textInputAction: TextInputAction.next,
               enabled: !_isLoading,
               autofillHints: const [AutofillHints.email],
-              decoration: _inputDecoration(
-                hint: 'usuario@empresa.com',
-                icon: Icons.email_outlined,
-              ),
               validator: (v) {
                 if (v == null || v.trim().isEmpty) {
                   return 'Ingresa tu correo electrónico';
@@ -281,36 +275,26 @@ class _LoginScreenState extends State<LoginScreen>
             const SizedBox(height: 20),
 
             // ── Contraseña ─────────────────────────────────────────────────────
-            const Text(
-              'Contraseña',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: AppColors.textDark,
-              ),
-            ),
-            const SizedBox(height: 8),
-            TextFormField(
+            SigoInput(
               controller: _passwordController,
+              label: 'Contraseña',
+              hint: '••••••••',
               obscureText: _obscurePassword,
+              prefixIcon: Icons.lock_outline,
               textInputAction: TextInputAction.done,
               enabled: !_isLoading,
               autofillHints: const [AutofillHints.password],
               onFieldSubmitted: (_) => _handleLogin(),
-              decoration: _inputDecoration(
-                hint: '••••••••',
-                icon: Icons.lock_outline,
-                suffix: IconButton(
-                  icon: Icon(
-                    _obscurePassword
-                        ? Icons.visibility_off_outlined
-                        : Icons.visibility_outlined,
-                    color: AppColors.textMedium,
-                    size: 20,
-                  ),
-                  onPressed: () =>
-                      setState(() => _obscurePassword = !_obscurePassword),
+              suffixIcon: IconButton(
+                icon: Icon(
+                  _obscurePassword
+                      ? Icons.visibility_off_outlined
+                      : Icons.visibility_outlined,
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                  size: 20,
                 ),
+                onPressed: () =>
+                    setState(() => _obscurePassword = !_obscurePassword),
               ),
               validator: (v) {
                 if (v == null || v.isEmpty) return 'Ingresa tu contraseña';
@@ -323,84 +307,16 @@ class _LoginScreenState extends State<LoginScreen>
             const SizedBox(height: 32),
 
             // ── Botón Login ────────────────────────────────────────────────────
-            SizedBox(
-              width: double.infinity,
-              height: 54,
-              child: ElevatedButton(
-                onPressed: _isLoading ? null : _handleLogin,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.accent,
-                  foregroundColor: Colors.white,
-                  disabledBackgroundColor: AppColors.accent.withOpacity(0.5),
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                ),
-                child: _isLoading
-                    ? const SizedBox(
-                        width: 22,
-                        height: 22,
-                        child: CircularProgressIndicator(
-                          color: Colors.white,
-                          strokeWidth: 2.5,
-                        ),
-                      )
-                    : const Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            'Iniciar Sesión',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          SizedBox(width: 8),
-                          Icon(Icons.arrow_forward_rounded, size: 20),
-                        ],
-                      ),
-              ),
+            SigoButton(
+              label: 'Iniciar Sesión',
+              icon: Icons.arrow_forward_rounded,
+              type: SigoButtonType.accent,
+              expand: true,
+              isLoading: _isLoading,
+              onPressed: _handleLogin,
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  InputDecoration _inputDecoration({
-    required String hint,
-    required IconData icon,
-    Widget? suffix,
-  }) {
-    return InputDecoration(
-      hintText: hint,
-      hintStyle: TextStyle(color: AppColors.textMedium.withOpacity(0.5)),
-      prefixIcon: Icon(icon, color: AppColors.primary.withOpacity(0.7), size: 20),
-      suffixIcon: suffix,
-      filled: true,
-      fillColor: AppColors.surfaceLight,
-      contentPadding:
-          const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: AppColors.border),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: AppColors.border),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
-      ),
-      errorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: AppColors.critical),
-      ),
-      focusedErrorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: AppColors.critical, width: 1.5),
       ),
     );
   }

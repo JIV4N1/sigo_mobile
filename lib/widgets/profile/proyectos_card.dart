@@ -8,6 +8,8 @@ class ProyectosCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final mutedColor = theme.colorScheme.onSurface.withValues(alpha: 0.5);
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -16,9 +18,9 @@ class ProyectosCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               'Proyectos Asignados',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1A237E)),
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: theme.colorScheme.primary),
             ),
             const SizedBox(height: 16),
             if (proyectos.isEmpty)
@@ -27,9 +29,9 @@ class ProyectosCard extends StatelessWidget {
                 alignment: Alignment.center,
                 child: Column(
                   children: [
-                    Icon(Icons.folder_off_outlined, size: 48, color: Colors.grey[400]),
+                    Icon(Icons.folder_off_outlined, size: 48, color: mutedColor),
                     const SizedBox(height: 8),
-                    Text('No tienes proyectos asignados', style: TextStyle(color: Colors.grey[600])),
+                    Text('No tienes proyectos asignados', style: TextStyle(color: mutedColor)),
                   ],
                 ),
               )
@@ -46,10 +48,10 @@ class ProyectosCard extends StatelessWidget {
                     leading: Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF1A237E).withOpacity(0.1),
+                        color: theme.colorScheme.primary.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: const Icon(Icons.business, color: Color(0xFF1A237E)),
+                      child: Icon(Icons.business, color: theme.colorScheme.primary),
                     ),
                     title: Text(p.nombre, style: const TextStyle(fontWeight: FontWeight.bold)),
                     subtitle: Text('Cód: ${p.codigo} • Rol: ${p.rolProyecto}'),

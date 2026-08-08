@@ -1,29 +1,17 @@
 import 'package:flutter/material.dart';
-import '../theme/app_colors.dart';
-
-class Engineer {
-  final String id;
-  final String name;
-  final String email;
-  final String phone;
-  final int activeIssues;
-
-  Engineer({
-    required this.id,
-    required this.name,
-    required this.email,
-    required this.phone,
-    required this.activeIssues,
-  });
-}
+import '../models/usuario_model.dart';
+import '../services/usuario_service.dart';
+import '../services/api_service.dart';
 
 class AssignEngineerBottomSheet extends StatefulWidget {
   final String issueId;
-  final Function(Engineer) onAssign;
+  final int proyectoId;
+  final Function(Usuario) onAssign;
 
   const AssignEngineerBottomSheet({
     Key? key,
     required this.issueId,
+    required this.proyectoId,
     required this.onAssign,
   }) : super(key: key);
 
@@ -34,35 +22,51 @@ class AssignEngineerBottomSheet extends StatefulWidget {
 class _AssignEngineerBottomSheetState extends State<AssignEngineerBottomSheet> {
   String _searchQuery = '';
   bool _isLoading = false;
-  List<Engineer> _engineers = [];
+  String? _errorMessage;
+  List<Usuario> _usuarios = [];
 
   @override
   void initState() {
     super.initState();
-    _loadEngineers();
+    _loadUsuarios();
   }
 
-  // Simulación del endpoint GET /api/proyectos/{id}/usuarios?rol=ingeniero
-  Future<void> _loadEngineers() async {
-    setState(() => _isLoading = true);
-    await Future.delayed(const Duration(seconds: 1)); // delay simulado
+  Future<void> _loadUsuarios() async {
     setState(() {
-      _engineers = [
-        Engineer(id: 'E1', name: 'Miguel Ángel Rojas', email: 'miguel@sigo.com', phone: '+52 55 1234 5678', activeIssues: 2),
-        Engineer(id: 'E2', name: 'Laura Mendoza', email: 'laura@sigo.com', phone: '+52 55 9876 5432', activeIssues: 5),
-        Engineer(id: 'E3', name: 'Roberto Castillo', email: 'roberto.c@sigo.com', phone: '+52 55 5555 5555', activeIssues: 8),
-      ];
-      _isLoading = false;
+      _isLoading = true;
+      _errorMessage = null;
     });
+    try {
+      final usuarios = await UsuarioService.getUsuariosPorProyecto(
+        widget.proyectoId,
+        rol: 'ingeniero',
+      );
+      if (!mounted) return;
+      setState(() {
+        _usuarios = usuarios;
+        _isLoading = false;
+      });
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = e.message;
+        _isLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = 'No se pudo cargar la lista de ingenieros.';
+        _isLoading = false;
+      });
+    }
   }
 
-  // Simulación del endpoint PUT /api/incidencias/{id}/asignar
-  Future<void> _assignEngineer(Engineer engineer) async {
+  Future<void> _assignUsuario(Usuario usuario) async {
     final confirmar = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Confirmar asignación'),
-        content: Text('¿Asignar a ${engineer.name} como responsable de ${widget.issueId}?'),
+        content: Text('¿Asignar a ${usuario.nombre} como responsable de esta incidencia?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -78,46 +82,15 @@ class _AssignEngineerBottomSheetState extends State<AssignEngineerBottomSheet> {
     );
 
     if (confirmar == true) {
-      widget.onAssign(engineer);
+      widget.onAssign(usuario);
       if (mounted) Navigator.pop(context);
     }
   }
 
-  Widget _buildLoadIndicator(int activeIssues) {
-    Color color;
-    if (activeIssues <= 3) {
-      color = Colors.green;
-    } else if (activeIssues <= 6) {
-      color = Colors.orange;
-    } else {
-      color = Colors.red;
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.circle, size: 8, color: color),
-          const SizedBox(width: 4),
-          Text(
-            '$activeIssues incidencias',
-            style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.bold),
-          ),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-    final filteredEngineers = _engineers
-        .where((e) => e.name.toLowerCase().contains(_searchQuery.toLowerCase()))
+    final filteredUsuarios = _usuarios
+        .where((u) => u.nombre.toLowerCase().contains(_searchQuery.toLowerCase()))
         .toList();
 
     return Container(
@@ -160,34 +133,44 @@ class _AssignEngineerBottomSheetState extends State<AssignEngineerBottomSheet> {
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
-                : ListView.separated(
-                    itemCount: filteredEngineers.length,
-                    separatorBuilder: (_, __) => const Divider(),
-                    itemBuilder: (context, index) {
-                      final engineer = filteredEngineers[index];
-                      return ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: CircleAvatar(
-                          backgroundColor: const Color(0xFF1A237E).withOpacity(0.1),
-                          child: Text(
-                            engineer.name.substring(0, 2).toUpperCase(),
-                            style: const TextStyle(color: Color(0xFF1A237E), fontWeight: FontWeight.bold),
-                          ),
-                        ),
-                        title: Text(engineer.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                        subtitle: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                : _errorMessage != null
+                    ? Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
-                            const SizedBox(height: 4),
-                            Text('${engineer.email} • ${engineer.phone}', style: const TextStyle(fontSize: 12)),
-                            const SizedBox(height: 8),
-                            _buildLoadIndicator(engineer.activeIssues),
+                            Text(_errorMessage!, textAlign: TextAlign.center),
+                            const SizedBox(height: 12),
+                            OutlinedButton(
+                              onPressed: _loadUsuarios,
+                              child: const Text('Reintentar'),
+                            ),
                           ],
                         ),
-                        onTap: () => _assignEngineer(engineer),
-                      );
-                    },
-                  ),
+                      )
+                    : filteredUsuarios.isEmpty
+                        ? const Center(child: Text('No hay ingenieros disponibles en este proyecto.'))
+                        : ListView.separated(
+                            itemCount: filteredUsuarios.length,
+                            separatorBuilder: (_, __) => const Divider(),
+                            itemBuilder: (context, index) {
+                              final usuario = filteredUsuarios[index];
+                              return ListTile(
+                                contentPadding: EdgeInsets.zero,
+                                leading: CircleAvatar(
+                                  backgroundColor: const Color(0xFF1A237E).withOpacity(0.1),
+                                  child: Text(
+                                    usuario.nombre.isNotEmpty
+                                        ? usuario.nombre.substring(0, usuario.nombre.length >= 2 ? 2 : 1).toUpperCase()
+                                        : '?',
+                                    style: const TextStyle(color: Color(0xFF1A237E), fontWeight: FontWeight.bold),
+                                  ),
+                                ),
+                                title: Text(usuario.nombre, style: const TextStyle(fontWeight: FontWeight.bold)),
+                                subtitle: Text(usuario.email, style: const TextStyle(fontSize: 12)),
+                                onTap: () => _assignUsuario(usuario),
+                              );
+                            },
+                          ),
           ),
         ],
       ),

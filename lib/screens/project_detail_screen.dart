@@ -10,6 +10,7 @@ import '../widgets/project_detail/trend_chart_card.dart';
 import '../widgets/project_detail/project_action_buttons.dart';
 import '../widgets/project_detail/activity_timeline.dart';
 import '../widgets/project_detail/project_info_card.dart';
+import 'issue_form_screen.dart';
 
 class ProjectDetailScreen extends StatefulWidget {
   /// Objeto proyecto con datos básicos del dashboard.
@@ -158,11 +159,14 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
         backgroundColor: AppColors.accent,
         elevation: 6,
         onPressed: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Mostrando opciones de captura...')),
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => IssueFormScreen(initialProject: _project),
+            ),
           );
         },
-        child: const Icon(Icons.camera_alt, color: Colors.white),
+        child: const Icon(Icons.add, color: Colors.white),
       ),
     );
   }

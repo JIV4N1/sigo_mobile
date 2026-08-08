@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../sigo_button.dart';
 
 class InfoPersonalCard extends StatefulWidget {
   final String nombreInicial;
@@ -39,6 +40,7 @@ class _InfoPersonalCardState extends State<InfoPersonalCard> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -49,17 +51,16 @@ class _InfoPersonalCardState extends State<InfoPersonalCard> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
+              Text(
                 'Información Personal',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1A237E)),
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: theme.colorScheme.primary),
               ),
               const SizedBox(height: 16),
               TextFormField(
                 controller: _nombreController,
-                decoration: InputDecoration(
+                decoration: const InputDecoration(
                   labelText: 'Nombre completo',
-                  prefixIcon: const Icon(Icons.person_outline),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                  prefixIcon: Icon(Icons.person_outline),
                 ),
                 validator: (v) => v == null || v.isEmpty ? 'El nombre es obligatorio' : null,
               ),
@@ -67,42 +68,31 @@ class _InfoPersonalCardState extends State<InfoPersonalCard> {
               TextFormField(
                 initialValue: widget.email,
                 readOnly: true,
-                decoration: InputDecoration(
+                decoration: const InputDecoration(
                   labelText: 'Correo electrónico',
-                  prefixIcon: const Icon(Icons.email_outlined),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                  filled: true,
-                  fillColor: Colors.grey[100],
+                  prefixIcon: Icon(Icons.email_outlined),
                 ),
               ),
               const SizedBox(height: 16),
               TextFormField(
                 controller: _telefonoController,
                 keyboardType: TextInputType.phone,
-                decoration: InputDecoration(
+                decoration: const InputDecoration(
                   labelText: 'Teléfono',
-                  prefixIcon: const Icon(Icons.phone_outlined),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                  prefixIcon: Icon(Icons.phone_outlined),
                 ),
                 validator: (v) => v == null || v.isEmpty ? 'El teléfono es obligatorio' : null,
               ),
               const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () {
-                    if (_formKey.currentState!.validate()) {
-                      widget.onGuardar(_nombreController.text, _telefonoController.text);
-                    }
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFFF6D00),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  ),
-                  child: const Text('Guardar Cambios', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                ),
+              SigoButton(
+                label: 'Guardar Cambios',
+                type: SigoButtonType.accent,
+                expand: true,
+                onPressed: () {
+                  if (_formKey.currentState!.validate()) {
+                    widget.onGuardar(_nombreController.text, _telefonoController.text);
+                  }
+                },
               ),
             ],
           ),

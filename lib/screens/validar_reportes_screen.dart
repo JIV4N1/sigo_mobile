@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import '../models/reporte_model.dart';
+import '../services/api_service.dart';
+import '../services/reportes_service.dart';
+import '../theme/app_colors.dart';
 import '../widgets/reporte_card.dart';
+import '../widgets/sigo_button.dart';
 import '../widgets/validacion_bottom_sheet.dart';
 
 class ValidarReportesScreen extends StatefulWidget {
@@ -24,7 +28,19 @@ class _ValidarReportesScreenState extends State<ValidarReportesScreen> {
     _cargarReportes();
   }
 
-  // Simulación de consumo de endpoint GET /api/proyectos/{id}/reportes?validado=false
+  String? _mapFiltroToApiEstado(String filtro) {
+    switch (filtro) {
+      case 'Pendientes':
+        return 'pendiente';
+      case 'Aprobados':
+        return 'aprobado';
+      case 'Rechazados':
+        return 'rechazado';
+      default:
+        return null; // 'Todos'
+    }
+  }
+
   Future<void> _cargarReportes() async {
     setState(() {
       _isLoading = true;
@@ -32,54 +48,22 @@ class _ValidarReportesScreenState extends State<ValidarReportesScreen> {
     });
 
     try {
-      // Simular delay de red
-      await Future.delayed(const Duration(seconds: 2));
-      
-      // Datos mock
+      final reportes = await ReportesService.getReportes(
+        estado: _mapFiltroToApiEstado(_filtroActual),
+      );
+      if (!mounted) return;
       setState(() {
-        _reportes = [
-          Reporte(
-            id: '1',
-            proyectoNombre: 'Torre Central',
-            proyectoCodigo: 'TC-2026',
-            supervisorNombre: 'Juan Pérez',
-            supervisorFoto: 'https://i.pravatar.cc/150?u=juan',
-            fecha: DateTime(2026, 5, 19),
-            turno: 'Matutino',
-            categoria: 'Estructural',
-            avance: 45.0,
-            descripcion: 'Se completó el colado de la losa del nivel 4. El clima fue favorable. Se requiere revisión de armados en nivel 5.',
-            fotos: [
-              'https://picsum.photos/400/300?random=1',
-              'https://picsum.photos/400/300?random=2',
-              'https://picsum.photos/400/300?random=3',
-              'https://picsum.photos/400/300?random=4',
-            ],
-            estado: 'pendiente',
-            fechaEnvio: DateTime.now().subtract(const Duration(hours: 3)),
-          ),
-          Reporte(
-            id: '2',
-            proyectoNombre: 'Plaza del Sol',
-            proyectoCodigo: 'PS-2025',
-            supervisorNombre: 'María García',
-            supervisorFoto: 'https://i.pravatar.cc/150?u=maria',
-            fecha: DateTime(2026, 5, 18),
-            turno: 'Vespertino',
-            categoria: 'Albañilería',
-            avance: 70.0,
-            descripcion: 'Avance en muros de tabique en área comercial. Hubo un retraso por falta de material en la zona B.',
-            fotos: [
-              'https://picsum.photos/400/300?random=5',
-              'https://picsum.photos/400/300?random=6',
-            ],
-            estado: 'aprobado',
-            fechaEnvio: DateTime.now().subtract(const Duration(days: 1)),
-          ),
-        ];
+        _reportes = reportes;
+        _isLoading = false;
+      });
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = e.message;
         _isLoading = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _error = 'Error al cargar reportes';
         _isLoading = false;
@@ -87,39 +71,37 @@ class _ValidarReportesScreenState extends State<ValidarReportesScreen> {
     }
   }
 
-  // Simulación de endpoint PUT /api/reportes/{id}/validar
   Future<void> _validarReporte(Reporte reporte, String nuevoEstado, String notas) async {
-    // Aquí iría la llamada HTTP real
-    
-    setState(() {
-      final index = _reportes.indexWhere((r) => r.id == reporte.id);
-      if (index != -1) {
-        // En una app real, el backend actualiza esto. Aquí actualizamos el modelo localmente.
-        _reportes[index] = Reporte(
-          id: reporte.id,
-          proyectoNombre: reporte.proyectoNombre,
-          proyectoCodigo: reporte.proyectoCodigo,
-          supervisorNombre: reporte.supervisorNombre,
-          supervisorFoto: reporte.supervisorFoto,
-          fecha: reporte.fecha,
-          turno: reporte.turno,
-          categoria: reporte.categoria,
-          avance: reporte.avance,
-          descripcion: reporte.descripcion,
-          fotos: reporte.fotos,
-          estado: nuevoEstado,
-          fechaEnvio: reporte.fechaEnvio,
-        );
-      }
-    });
+    try {
+      await ReportesService.validarReporte(
+        int.parse(reporte.id),
+        estado: nuevoEstado,
+        notas: notas,
+      );
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Reporte ${nuevoEstado.toLowerCase()} exitosamente'),
-        backgroundColor: nuevoEstado == 'aprobado' ? Colors.green : Colors.red,
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+      if (!mounted) return;
+      // Recargamos desde el backend en vez de mutar localmente, para reflejar
+      // el estado real (el backend pudo aplicar reglas adicionales).
+      await _cargarReportes();
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Reporte ${nuevoEstado.toLowerCase()} exitosamente'),
+          backgroundColor: nuevoEstado == 'aprobado' ? AppColors.success : AppColors.error,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.message),
+          backgroundColor: AppColors.error,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 
   void _mostrarBottomSheet(Reporte reporte) {
@@ -145,19 +127,17 @@ class _ValidarReportesScreenState extends State<ValidarReportesScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
-      backgroundColor: Colors.grey[100],
       appBar: AppBar(
-        title: const Text('Validar Reportes', style: TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: const Color(0xFF1A237E),
-        foregroundColor: Colors.white,
+        title: const Text('Validar Reportes'),
         actions: [
           Center(
             child: Padding(
               padding: const EdgeInsets.only(right: 16.0),
               child: Badge(
                 label: Text('$_cantidadPendientes'),
-                backgroundColor: const Color(0xFFFF6D00),
+                backgroundColor: AppColors.accent,
                 child: const Icon(Icons.notifications),
               ),
             ),
@@ -179,21 +159,22 @@ class _ValidarReportesScreenState extends State<ValidarReportesScreen> {
                     label: Text(
                       filtro,
                       style: TextStyle(
-                        color: isSelected ? Colors.white : Colors.black87,
+                        color: isSelected ? Colors.white : theme.colorScheme.onSurface,
                         fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                       ),
                     ),
                     selected: isSelected,
                     onSelected: (selected) {
                       setState(() => _filtroActual = filtro);
+                      _cargarReportes();
                     },
-                    backgroundColor: Colors.white,
-                    selectedColor: const Color(0xFF1A237E),
+                    backgroundColor: theme.colorScheme.surface,
+                    selectedColor: theme.colorScheme.primary,
                     checkmarkColor: Colors.white,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(20),
                       side: BorderSide(
-                        color: isSelected ? const Color(0xFF1A237E) : Colors.grey[300]!,
+                        color: isSelected ? theme.colorScheme.primary : theme.dividerColor,
                       ),
                     ),
                   ),
@@ -201,19 +182,19 @@ class _ValidarReportesScreenState extends State<ValidarReportesScreen> {
               }).toList(),
             ),
           ),
-          
+
           // Contenido principal
           Expanded(
-            child: _buildContent(),
+            child: _buildContent(theme),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildContent() {
+  Widget _buildContent(ThemeData theme) {
     if (_isLoading) {
-      return const Center(child: CircularProgressIndicator(color: Color(0xFFFF6D00)));
+      return Center(child: CircularProgressIndicator(color: theme.colorScheme.secondary));
       // Idealmente, aquí iría un Shimmer Loading (shimmer_cards)
     }
 
@@ -222,15 +203,11 @@ class _ValidarReportesScreenState extends State<ValidarReportesScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.error_outline, size: 48, color: Colors.red),
+            Icon(Icons.error_outline, size: 48, color: theme.colorScheme.error),
             const SizedBox(height: 16),
-            Text(_error!, style: const TextStyle(fontSize: 16)),
+            Text(_error!, textAlign: TextAlign.center, style: const TextStyle(fontSize: 16)),
             const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: _cargarReportes,
-              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1A237E)),
-              child: const Text('Reintentar', style: TextStyle(color: Colors.white)),
-            ),
+            SigoButton(label: 'Reintentar', onPressed: _cargarReportes),
           ],
         ),
       );
@@ -243,11 +220,11 @@ class _ValidarReportesScreenState extends State<ValidarReportesScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.check_circle_outline, size: 64, color: Colors.green[300]),
+            const Icon(Icons.check_circle_outline, size: 64, color: AppColors.success),
             const SizedBox(height: 16),
-            const Text(
+            Text(
               'No hay reportes en esta categoría',
-              style: TextStyle(fontSize: 16, color: Colors.grey),
+              style: TextStyle(fontSize: 16, color: theme.colorScheme.onSurface.withValues(alpha: 0.6)),
             ),
           ],
         ),
@@ -256,7 +233,7 @@ class _ValidarReportesScreenState extends State<ValidarReportesScreen> {
 
     return RefreshIndicator(
       onRefresh: _cargarReportes,
-      color: const Color(0xFFFF6D00),
+      color: AppColors.accent,
       child: ListView.builder(
         itemCount: reportes.length,
         itemBuilder: (context, index) {

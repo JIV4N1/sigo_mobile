@@ -4,21 +4,30 @@ import 'package:map_launcher/map_launcher.dart';
 import '../models/issue_model.dart';
 import '../theme/app_colors.dart';
 import '../services/api_service.dart';
+import '../services/auth_service.dart';
+import '../services/incidencia_service.dart';
 import '../config/api_config.dart';
+import '../models/usuario_model.dart';
 import '../widgets/severity_badge.dart';
 import '../widgets/status_chip.dart';
 import '../widgets/timeline_widget.dart';
 import '../widgets/assign_engineer_bottom_sheet.dart';
+import 'atender_incidencia_screen.dart';
 
 class IssueDetailScreen extends StatefulWidget {
   final Issue issue;
   /// Rol del usuario autenticado para controlar acciones visibles.
   final String rol;
+  /// Proyecto desde el que se abrió esta pantalla (si se conoce), usado como
+  /// respaldo cuando la incidencia no trae `proyecto_id` en su JSON — p. ej.
+  /// cuando viene de un listado de incidencias ya filtrado por proyecto.
+  final int? fallbackProjectId;
 
   const IssueDetailScreen({
     super.key,
     required this.issue,
     this.rol = 'supervisor',
+    this.fallbackProjectId,
   });
 
   @override
@@ -26,9 +35,17 @@ class IssueDetailScreen extends StatefulWidget {
 }
 
 class _IssueDetailScreenState extends State<IssueDetailScreen> {
+  static const Map<IssueStatus, String> _statusApiMap = {
+    IssueStatus.open: 'abierta',
+    IssueStatus.inProgress: 'en_progreso',
+    IssueStatus.resolved: 'resuelta',
+    IssueStatus.closed: 'cerrada',
+  };
+
   late Issue _issue;
   bool _isUpdatingStatus = false;
-  Engineer? _assignedEngineer;
+  Usuario? _assignedUsuario;
+  String? _currentUserName;
 
   // Controlador para agregar comentarios
   final TextEditingController _commentController = TextEditingController();
@@ -38,6 +55,12 @@ class _IssueDetailScreenState extends State<IssueDetailScreen> {
   void initState() {
     super.initState();
     _issue = widget.issue;
+    _loadCurrentUser();
+  }
+
+  Future<void> _loadCurrentUser() async {
+    final nombre = await AuthService.getNombre();
+    if (mounted) setState(() => _currentUserName = nombre);
   }
 
   @override
@@ -46,26 +69,24 @@ class _IssueDetailScreenState extends State<IssueDetailScreen> {
     super.dispose();
   }
 
-  bool get _isGerente => widget.rol == 'gerente';
+  bool get _esAdminOGerente =>
+      widget.rol == 'administrador' || widget.rol == 'gerente';
+  bool get _esAsignado =>
+      _currentUserName != null && _issue.assignedTo == _currentUserName;
   bool get _canChangeStatus =>
       widget.rol == 'ingeniero' || widget.rol == 'gerente' || widget.rol == 'supervisor';
+  int? get _effectiveProjectId => _issue.projectId ?? widget.fallbackProjectId;
 
   // ─── Cambio de estado ─────────────────────────────────────────────────────────
 
-  Future<void> _changeStatus(IssueStatus newStatus) async {
+  Future<void> _changeStatus(IssueStatus newStatus, {String? comentario}) async {
     setState(() => _isUpdatingStatus = true);
 
     try {
-      final statusMap = {
-        IssueStatus.open: 'abierta',
-        IssueStatus.inProgress: 'en_progreso',
-        IssueStatus.resolved: 'resuelta',
-        IssueStatus.closed: 'cerrada',
-      };
-
-      await ApiService.put(
-        ApiConfig.incidenciaEstado(int.tryParse(_issue.id) ?? 0),
-        body: {'estado': statusMap[newStatus]},
+      await IncidenciaService.cambiarEstado(
+        int.tryParse(_issue.id) ?? 0,
+        estado: _statusApiMap[newStatus]!,
+        comentario: comentario,
       );
 
       if (!mounted) return;
@@ -88,7 +109,9 @@ class _IssueDetailScreenState extends State<IssueDetailScreen> {
             IssueTimelineEntry(
               id: DateTime.now().millisecondsSinceEpoch.toString(),
               type: 'status_change',
-              text: 'Estado cambiado a "${_getStatusLabel(newStatus)}"',
+              text: comentario == null
+                  ? 'Estado cambiado a "${_getStatusLabel(newStatus)}"'
+                  : 'Estado cambiado a "${_getStatusLabel(newStatus)}" — $comentario',
               author: 'Tú',
               timestamp: DateTime.now(),
             ),
@@ -131,54 +154,136 @@ class _IssueDetailScreenState extends State<IssueDetailScreen> {
     }
   }
 
+  // ─── Atender incidencia (descripción + fotos + comentario) ────────────────────
+
+  Future<void> _navigateToAtender() async {
+    final result = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(builder: (_) => AtenderIncidenciaScreen(issue: _issue)),
+    );
+    if (result == true) {
+      await _refreshIssue();
+    }
+  }
+
+  Future<void> _refreshIssue() async {
+    try {
+      final updated = await IncidenciaService.getIncidencia(int.tryParse(_issue.id) ?? 0);
+      if (!mounted) return;
+      setState(() => _issue = updated);
+    } catch (_) {
+      // La incidencia ya se actualizó en el backend; si el refresco falla,
+      // el usuario puede refrescar manualmente desde la lista.
+    }
+  }
+
   // ─── Asignación de ingeniero ──────────────────────────────────────────────────
 
   void _showAssignBottomSheet() {
+    final proyectoId = _effectiveProjectId;
+    if (proyectoId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No se puede asignar responsable: falta el proyecto de la incidencia.'),
+        ),
+      );
+      return;
+    }
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) => AssignEngineerBottomSheet(
         issueId: _issue.id,
-        onAssign: (engineer) async {
-          // Aquí se podría llamar a un endpoint de asignación
-          setState(() {
-            _assignedEngineer = engineer;
-            _issue = Issue(
-              id: _issue.id,
-              title: _issue.title,
-              description: _issue.description,
-              category: _issue.category,
-              location: _issue.location,
-              severity: _issue.severity,
-              status: _issue.status,
-              reportedAt: _issue.reportedAt,
-              updatedAt: DateTime.now(),
-              reporter: _issue.reporter,
-              assignedTo: engineer.name,
-              photos: _issue.photos,
-              timeline: [
-                IssueTimelineEntry(
-                  id: DateTime.now().millisecondsSinceEpoch.toString(),
-                  type: 'assignment',
-                  text: 'Asignado a ${engineer.name}',
-                  author: 'Tú',
-                  timestamp: DateTime.now(),
-                ),
-                ..._issue.timeline,
-              ],
-              comments: _issue.comments,
-              latitude: _issue.latitude,
-              longitude: _issue.longitude,
-            );
-          });
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-                content: Text('Responsable asignado: ${engineer.name}')),
-          );
-        },
+        proyectoId: proyectoId,
+        onAssign: _asignarResponsable,
       ),
     );
+  }
+
+  Future<void> _asignarResponsable(Usuario usuario) async {
+    setState(() => _isUpdatingStatus = true);
+
+    try {
+      await IncidenciaService.cambiarEstado(
+        int.tryParse(_issue.id) ?? 0,
+        estado: _statusApiMap[_issue.status]!,
+        asignadoA: usuario.id,
+      );
+
+      if (!mounted) return;
+      setState(() {
+        _isUpdatingStatus = false;
+        _assignedUsuario = usuario;
+        _issue = Issue(
+          id: _issue.id,
+          title: _issue.title,
+          description: _issue.description,
+          category: _issue.category,
+          location: _issue.location,
+          severity: _issue.severity,
+          status: _issue.status,
+          reportedAt: _issue.reportedAt,
+          updatedAt: DateTime.now(),
+          reporter: _issue.reporter,
+          assignedTo: usuario.nombre,
+          photos: _issue.photos,
+          timeline: [
+            IssueTimelineEntry(
+              id: DateTime.now().millisecondsSinceEpoch.toString(),
+              type: 'assignment',
+              text: 'Asignado a ${usuario.nombre}',
+              author: 'Tú',
+              timestamp: DateTime.now(),
+            ),
+            ..._issue.timeline,
+          ],
+          comments: _issue.comments,
+          latitude: _issue.latitude,
+          longitude: _issue.longitude,
+        );
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Responsable asignado: ${usuario.nombre}')),
+      );
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() => _isUpdatingStatus = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.message), backgroundColor: AppColors.critical),
+      );
+    } catch (_) {
+      if (mounted) setState(() => _isUpdatingStatus = false);
+    }
+  }
+
+  // ─── Cierre de incidencia (solo admin/gerente) ────────────────────────────────
+
+  Future<void> _cerrarIncidencia() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Cerrar incidencia'),
+        content: const Text(
+            '¿Confirmas que deseas cerrar esta incidencia? Esta acción no se puede deshacer.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.success),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Cerrar', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      await _changeStatus(IssueStatus.closed,
+          comentario: 'Incidencia cerrada por validación');
+    }
   }
 
   // ─── Comentarios ──────────────────────────────────────────────────────────────
@@ -278,7 +383,9 @@ class _IssueDetailScreenState extends State<IssueDetailScreen> {
           children: [
             // ── Estado y Severidad ─────────────────────────────────────────────
             Row(children: [
-              if (_canChangeStatus)
+              if (_canChangeStatus &&
+                  _issue.status != IssueStatus.closed &&
+                  _issue.status != IssueStatus.resolved)
                 DropdownButtonHideUnderline(
                   child: DropdownButton<IssueStatus>(
                     value: _issue.status,
@@ -289,7 +396,15 @@ class _IssueDetailScreenState extends State<IssueDetailScreen> {
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
                         : const Icon(Icons.arrow_drop_down),
-                    items: IssueStatus.values.map((s) {
+                    // "Resuelta" y "Cerrada" se excluyen del selector: la API
+                    // exige un comentario obligatorio al resolver o cerrar,
+                    // así que esas transiciones solo pueden hacerse desde el
+                    // flujo dedicado ("Atender Incidencia" / "Cerrar
+                    // Incidencia" más abajo), que sí lo recolecta.
+                    items: IssueStatus.values
+                        .where((s) =>
+                            s != IssueStatus.closed && s != IssueStatus.resolved)
+                        .map((s) {
                       return DropdownMenuItem(
                           value: s, child: StatusChip(status: s));
                     }).toList(),
@@ -342,9 +457,28 @@ class _IssueDetailScreenState extends State<IssueDetailScreen> {
 
             const SizedBox(height: 24),
 
-            // ── Sección Responsable (solo gerente) ─────────────────────────────
-            if (_isGerente) ...[
+            // ── Sección Responsable (solo admin/gerente) ───────────────────────
+            if (_esAdminOGerente) ...[
               _buildResponsableSection(),
+              const SizedBox(height: 24),
+            ],
+
+            // ── Cerrar incidencia (solo admin/gerente, estado resuelta) ────────
+            if (_esAdminOGerente && _issue.status == IssueStatus.resolved) ...[
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: _isUpdatingStatus ? null : _cerrarIncidencia,
+                  icon: const Icon(Icons.lock_outline),
+                  label: const Text('Cerrar Incidencia',
+                      style: TextStyle(fontWeight: FontWeight.bold)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.success,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                  ),
+                ),
+              ),
               const SizedBox(height: 24),
             ],
 
@@ -521,35 +655,20 @@ class _IssueDetailScreenState extends State<IssueDetailScreen> {
               ),
               const SizedBox(width: 8),
             ],
-            if (_canChangeStatus &&
-                _issue.status != IssueStatus.resolved &&
-                _issue.status != IssueStatus.closed)
+            if ((_esAsignado || _esAdminOGerente) &&
+                (_issue.status == IssueStatus.open ||
+                    _issue.status == IssueStatus.inProgress))
               Expanded(
                 flex: 2,
-                child: ElevatedButton(
+                child: ElevatedButton.icon(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.accent,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                   ),
-                  onPressed: _isUpdatingStatus
-                      ? null
-                      : () => _changeStatus(IssueStatus.inProgress),
-                  child: const Text('Atender Incidencia',
-                      style: TextStyle(fontWeight: FontWeight.bold)),
-                ),
-              )
-            else if (_canChangeStatus)
-              Expanded(
-                flex: 2,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.success,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                  ),
-                  onPressed: () {},
-                  child: const Text('Resuelta',
+                  onPressed: _isUpdatingStatus ? null : _navigateToAtender,
+                  icon: const Icon(Icons.assignment_outlined),
+                  label: const Text('Atender Incidencia',
                       style: TextStyle(fontWeight: FontWeight.bold)),
                 ),
               ),
@@ -602,10 +721,10 @@ class _IssueDetailScreenState extends State<IssueDetailScreen> {
                       color: hasAssignee ? Colors.black : Colors.grey,
                     ),
                   ),
-                  if (hasAssignee && _assignedEngineer != null) ...[
+                  if (hasAssignee && _assignedUsuario != null) ...[
                     const SizedBox(height: 4),
                     Text(
-                      '${_assignedEngineer!.email} • ${_assignedEngineer!.phone}',
+                      _assignedUsuario!.email,
                       style: const TextStyle(
                           fontSize: 12, color: Colors.grey),
                     ),
@@ -613,28 +732,29 @@ class _IssueDetailScreenState extends State<IssueDetailScreen> {
                 ],
               ),
             ),
-            if (!hasAssignee)
-              ElevatedButton(
-                onPressed: _showAssignBottomSheet,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.accent,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8)),
+            if (_effectiveProjectId != null)
+              if (!hasAssignee)
+                ElevatedButton(
+                  onPressed: _showAssignBottomSheet,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.accent,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8)),
+                  ),
+                  child: const Text('Asignar',
+                      style: TextStyle(color: Colors.white)),
+                )
+              else
+                OutlinedButton(
+                  onPressed: _showAssignBottomSheet,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.accent,
+                    side: const BorderSide(color: AppColors.accent),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8)),
+                  ),
+                  child: const Text('Cambiar'),
                 ),
-                child: const Text('Asignar',
-                    style: TextStyle(color: Colors.white)),
-              )
-            else
-              OutlinedButton(
-                onPressed: _showAssignBottomSheet,
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppColors.accent,
-                  side: const BorderSide(color: AppColors.accent),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8)),
-                ),
-                child: const Text('Cambiar'),
-              ),
           ]),
         ),
       ],

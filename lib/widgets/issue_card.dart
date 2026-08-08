@@ -79,6 +79,28 @@ class _IssueCardState extends State<IssueCard> with SingleTickerProviderStateMix
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            widget.issue.code ?? 'INC-${widget.issue.id}',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                          Text(
+                            'Por: ${widget.issue.reporter}',
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: AppColors.textMedium,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Expanded(
@@ -93,7 +115,7 @@ class _IssueCardState extends State<IssueCard> with SingleTickerProviderStateMix
                             FadeTransition(
                               opacity: _pulseAnimation,
                               child: Container(
-                                margin: const EdgeInsets.only(left: 8),
+                                margin: const EdgeInsets.only(left: 8, top: 4),
                                 width: 10,
                                 height: 10,
                                 decoration: const BoxDecoration(
@@ -106,7 +128,7 @@ class _IssueCardState extends State<IssueCard> with SingleTickerProviderStateMix
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        '${widget.issue.category} • ${widget.issue.location}',
+                        '${widget.issue.projectName ?? 'Proyecto'} • ${widget.issue.category} • ${widget.issue.location}',
                         style: const TextStyle(fontSize: 12, color: AppColors.textMedium),
                       ),
                       const SizedBox(height: 8),

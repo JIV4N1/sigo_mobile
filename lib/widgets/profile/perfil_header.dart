@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../models/user_profile_model.dart';
+import '../../theme/app_colors.dart';
 
 class PerfilHeader extends StatelessWidget {
   final UserProfile user;
@@ -17,7 +18,7 @@ class PerfilHeader extends StatelessWidget {
       width: double.infinity,
       decoration: const BoxDecoration(
         gradient: LinearGradient(
-          colors: [Color(0xFF1A237E), Color(0xFF283593)],
+          colors: [AppColors.primary, AppColors.primaryLight],
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
         ),
@@ -33,7 +34,7 @@ class PerfilHeader extends StatelessWidget {
               children: [
                 CircleAvatar(
                   radius: 40,
-                  backgroundColor: Colors.white.withOpacity(0.2),
+                  backgroundColor: Colors.white.withValues(alpha: 0.2),
                   backgroundImage: user.fotoUrl != null ? NetworkImage(user.fotoUrl!) : null,
                   child: user.fotoUrl == null
                       ? Text(
@@ -45,7 +46,7 @@ class PerfilHeader extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(4),
                   decoration: const BoxDecoration(
-                    color: Color(0xFFFF6D00),
+                    color: AppColors.accent,
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(Icons.camera_alt, color: Colors.white, size: 16),
@@ -62,7 +63,7 @@ class PerfilHeader extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
+              color: Colors.white.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(16),
             ),
             child: Text(
@@ -73,7 +74,7 @@ class PerfilHeader extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             user.email,
-            style: TextStyle(fontSize: 14, color: Colors.white.withOpacity(0.8)),
+            style: TextStyle(fontSize: 14, color: Colors.white.withValues(alpha: 0.8)),
           ),
         ],
       ),

@@ -3,7 +3,8 @@ import '../models/project_model.dart';
 import '../theme/app_colors.dart';
 import '../widgets/project_card.dart';
 import '../widgets/shimmer_loading.dart';
-import '../widgets/sigo_bottom_nav_bar.dart';
+import '../widgets/sigo_bottom_nav.dart';
+import '../widgets/sigo_button.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
 import '../services/project_service.dart';
@@ -14,6 +15,16 @@ import 'report_form_screen.dart';
 import 'profile_screen.dart';
 import 'attendance_screen.dart';
 import 'validar_reportes_screen.dart';
+import 'gastos/gastos_list_screen.dart';
+
+class _NavEntry {
+  final String route;
+  final IconData icon;
+  final IconData activeIcon;
+  final String label;
+
+  const _NavEntry(this.route, this.icon, this.activeIcon, this.label);
+}
 
 class ProjectsDashboard extends StatefulWidget {
   /// Rol del usuario autenticado en minúsculas.
@@ -146,7 +157,7 @@ class _ProjectsDashboardState extends State<ProjectsDashboard> {
     final items = _getNavItems();
     if (index >= items.length) return;
 
-    final route = items[index]['route'] as String;
+    final route = items[index].route;
     switch (route) {
       case 'dashboard':
         setState(() => _currentNavIndex = index);
@@ -163,6 +174,10 @@ class _ProjectsDashboardState extends State<ProjectsDashboard> {
         Navigator.push(context,
             MaterialPageRoute(builder: (_) => const ValidarReportesScreen()));
         break;
+      case 'gastos':
+        Navigator.push(context,
+            MaterialPageRoute(builder: (_) => const GastosListScreen()));
+        break;
       case 'perfil':
         Navigator.push(
             context, MaterialPageRoute(builder: (_) => const ProfileScreen()));
@@ -174,37 +189,42 @@ class _ProjectsDashboardState extends State<ProjectsDashboard> {
     }
   }
 
-  List<Map<String, dynamic>> _getNavItems() {
+  List<_NavEntry> _getNavItems() {
     switch (widget.rol) {
       case 'supervisor':
-        return [
-          {'route': 'dashboard', 'icon': Icons.grid_view, 'label': 'Proyectos'},
-          {'route': 'reporte', 'icon': Icons.fact_check_outlined, 'label': 'Avance'},
-          {'route': 'incidencias', 'icon': Icons.warning_amber_rounded, 'label': 'Incidencias'},
-          {'route': 'perfil', 'icon': Icons.person_outline, 'label': 'Perfil'},
-          {'route': 'asistencia', 'icon': Icons.access_time, 'label': 'Asistencia'},
+        return const [
+          _NavEntry('dashboard', Icons.grid_view_outlined, Icons.grid_view, 'Proyectos'),
+          _NavEntry('reporte', Icons.fact_check_outlined, Icons.fact_check, 'Avance'),
+          _NavEntry('incidencias', Icons.warning_amber_outlined, Icons.warning_amber_rounded, 'Incidencias'),
+          _NavEntry('gastos', Icons.receipt_long_outlined, Icons.receipt_long, 'Gastos'),
+          _NavEntry('asistencia', Icons.access_time, Icons.access_time_filled, 'Asistencia'),
+          _NavEntry('perfil', Icons.person_outline, Icons.person, 'Perfil'),
         ];
       case 'ingeniero':
-        return [
-          {'route': 'dashboard', 'icon': Icons.grid_view, 'label': 'Proyectos'},
-          {'route': 'incidencias', 'icon': Icons.warning_amber_rounded, 'label': 'Incidencias'},
-          {'route': 'perfil', 'icon': Icons.person_outline, 'label': 'Perfil'},
-          {'route': 'asistencia', 'icon': Icons.access_time, 'label': 'Asistencia'},
+        return const [
+          _NavEntry('dashboard', Icons.grid_view_outlined, Icons.grid_view, 'Proyectos'),
+          _NavEntry('reporte', Icons.fact_check_outlined, Icons.fact_check, 'Avance'),
+          _NavEntry('incidencias', Icons.warning_amber_outlined, Icons.warning_amber_rounded, 'Incidencias'),
+          _NavEntry('gastos', Icons.receipt_long_outlined, Icons.receipt_long, 'Gastos'),
+          _NavEntry('asistencia', Icons.access_time, Icons.access_time_filled, 'Asistencia'),
+          _NavEntry('perfil', Icons.person_outline, Icons.person, 'Perfil'),
         ];
       case 'gerente':
-        return [
-          {'route': 'dashboard', 'icon': Icons.grid_view, 'label': 'Proyectos'},
-          {'route': 'incidencias', 'icon': Icons.warning_amber_rounded, 'label': 'Incidencias'},
-          {'route': 'validar', 'icon': Icons.verified_outlined, 'label': 'Validar'},
-          {'route': 'perfil', 'icon': Icons.person_outline, 'label': 'Perfil'},
-          {'route': 'asistencia', 'icon': Icons.access_time, 'label': 'Asistencia'},
+        return const [
+          _NavEntry('dashboard', Icons.grid_view_outlined, Icons.grid_view, 'Proyectos'),
+          _NavEntry('incidencias', Icons.warning_amber_outlined, Icons.warning_amber_rounded, 'Incidencias'),
+          _NavEntry('gastos', Icons.receipt_long_outlined, Icons.receipt_long, 'Gastos'),
+          _NavEntry('validar', Icons.verified_outlined, Icons.verified, 'Validar'),
+          _NavEntry('perfil', Icons.person_outline, Icons.person, 'Perfil'),
         ];
       case 'administrador':
       default:
-        return [
-          {'route': 'dashboard', 'icon': Icons.grid_view, 'label': 'Proyectos'},
-          {'route': 'perfil', 'icon': Icons.person_outline, 'label': 'Perfil'},
-          {'route': 'asistencia', 'icon': Icons.access_time, 'label': 'Asistencia'},
+        return const [
+          _NavEntry('dashboard', Icons.grid_view_outlined, Icons.grid_view, 'Proyectos'),
+          _NavEntry('incidencias', Icons.warning_amber_outlined, Icons.warning_amber_rounded, 'Incidencias'),
+          _NavEntry('gastos', Icons.receipt_long_outlined, Icons.receipt_long, 'Gastos'),
+          _NavEntry('validar', Icons.verified_outlined, Icons.verified, 'Reportes'),
+          _NavEntry('perfil', Icons.person_outline, Icons.person, 'Perfil'),
         ];
     }
   }
@@ -216,6 +236,7 @@ class _ProjectsDashboardState extends State<ProjectsDashboard> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (context) {
+        final theme = Theme.of(context);
         return StatefulBuilder(builder: (context, setStateSheet) {
           return Padding(
             padding: const EdgeInsets.all(20.0),
@@ -223,12 +244,9 @@ class _ProjectsDashboardState extends State<ProjectsDashboard> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   'Filtrar por estado',
-                  style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.textDark),
+                  style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 16),
                 Wrap(
@@ -241,9 +259,9 @@ class _ProjectsDashboardState extends State<ProjectsDashboard> {
                     return ChoiceChip(
                       label: Text(f),
                       selected: sel,
-                      selectedColor: AppColors.primary,
+                      selectedColor: theme.colorScheme.primary,
                       labelStyle: TextStyle(
-                          color: sel ? Colors.white : AppColors.textDark),
+                          color: sel ? Colors.white : theme.colorScheme.onSurface),
                       onSelected: (_) {
                         setStateSheet(() {});
                         setState(() {
@@ -270,15 +288,15 @@ class _ProjectsDashboardState extends State<ProjectsDashboard> {
   Widget build(BuildContext context) {
     final navItems = _getNavItems();
     // Índice del dashboard siempre es 0
-    final showFab = widget.rol == 'supervisor';
+    final showFab = widget.rol == 'supervisor' || widget.rol == 'ingeniero';
+    final theme = Theme.of(context);
 
     return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: _buildAppBar(),
+      appBar: _buildAppBar(theme),
       body: Column(
         children: [
-          _buildSearchBar(),
-          Expanded(child: _buildBody()),
+          _buildSearchBar(theme),
+          Expanded(child: _buildBody(theme)),
         ],
       ),
       floatingActionButton: showFab
@@ -296,27 +314,19 @@ class _ProjectsDashboardState extends State<ProjectsDashboard> {
       floatingActionButtonLocation: showFab
           ? FloatingActionButtonLocation.centerDocked
           : null,
-      bottomNavigationBar: BottomNavigationBar(
+      bottomNavigationBar: SigoBottomNav(
         currentIndex: _currentNavIndex,
         onTap: _navigateByNavIndex,
-        type: BottomNavigationBarType.fixed,
-        selectedItemColor: AppColors.primary,
-        unselectedItemColor: AppColors.textMedium,
-        items: navItems.map((item) {
-          return BottomNavigationBarItem(
-            icon: Icon(item['icon'] as IconData),
-            label: item['label'] as String,
-          );
-        }).toList(),
+        items: [
+          for (final item in navItems)
+            SigoNavItem(icon: item.icon, activeIcon: item.activeIcon, label: item.label),
+        ],
       ),
     );
   }
 
-  AppBar _buildAppBar() {
+  AppBar _buildAppBar(ThemeData theme) {
     return AppBar(
-      backgroundColor: AppColors.surface,
-      elevation: 2,
-      shadowColor: Colors.black.withOpacity(0.3),
       title: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -324,26 +334,23 @@ class _ProjectsDashboardState extends State<ProjectsDashboard> {
             widget.rol == 'gerente' || widget.rol == 'administrador'
                 ? 'Todos los Proyectos'
                 : 'Mis Proyectos',
-            style: const TextStyle(
-              color: AppColors.textDark,
-              fontWeight: FontWeight.bold,
-              fontSize: 18,
-            ),
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
           ),
           if (_filteredProjects.isNotEmpty && !_isLoading)
             Text(
               '${_filteredProjects.length} proyecto(s)',
-              style: const TextStyle(
-                color: AppColors.textMedium,
+              style: TextStyle(
+                color: theme.appBarTheme.foregroundColor?.withValues(alpha: 0.8),
                 fontSize: 12,
               ),
             ),
         ],
       ),
+      centerTitle: false,
       leading: Padding(
         padding: const EdgeInsets.all(8.0),
         child: CircleAvatar(
-          backgroundColor: AppColors.primary,
+          backgroundColor: AppColors.accent,
           child: Text(
             _iniciales.isEmpty ? 'U' : _iniciales,
             style: const TextStyle(
@@ -354,7 +361,8 @@ class _ProjectsDashboardState extends State<ProjectsDashboard> {
     );
   }
 
-  Widget _buildSearchBar() {
+  Widget _buildSearchBar(ThemeData theme) {
+    final borderColor = theme.dividerColor;
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
       child: Row(
@@ -363,20 +371,19 @@ class _ProjectsDashboardState extends State<ProjectsDashboard> {
             child: Container(
               height: 48,
               decoration: BoxDecoration(
-                color: AppColors.surfaceLight,
+                color: theme.colorScheme.surface,
                 borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: AppColors.border),
+                border: Border.all(color: borderColor),
               ),
               child: TextField(
                 controller: _searchController,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   hintText: 'Buscar proyecto...',
-                  hintStyle: TextStyle(color: AppColors.textMedium),
-                  prefixIcon:
-                      Icon(Icons.search, color: AppColors.textMedium),
+                  prefixIcon: const Icon(Icons.search),
                   border: InputBorder.none,
+                  filled: false,
                   contentPadding:
-                      EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 ),
               ),
             ),
@@ -387,22 +394,17 @@ class _ProjectsDashboardState extends State<ProjectsDashboard> {
             width: 48,
             decoration: BoxDecoration(
               color: _selectedStatusFilter != 'Todos'
-                  ? AppColors.primary.withOpacity(0.1)
-                  : AppColors.surface,
+                  ? theme.colorScheme.primary.withValues(alpha: 0.1)
+                  : theme.colorScheme.surface,
               shape: BoxShape.circle,
               border: Border.all(
                 color: _selectedStatusFilter != 'Todos'
-                    ? AppColors.primary
-                    : AppColors.border,
+                    ? theme.colorScheme.primary
+                    : borderColor,
               ),
             ),
             child: IconButton(
-              icon: Icon(
-                Icons.filter_list,
-                color: _selectedStatusFilter != 'Todos'
-                    ? AppColors.primary
-                    : AppColors.primary,
-              ),
+              icon: Icon(Icons.filter_list, color: theme.colorScheme.primary),
               onPressed: _showFilterBottomSheet,
             ),
           ),
@@ -411,7 +413,7 @@ class _ProjectsDashboardState extends State<ProjectsDashboard> {
     );
   }
 
-  Widget _buildBody() {
+  Widget _buildBody(ThemeData theme) {
     if (_hasError) {
       return Center(
         child: Padding(
@@ -419,23 +421,18 @@ class _ProjectsDashboardState extends State<ProjectsDashboard> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.cloud_off, size: 72, color: AppColors.border),
+              Icon(Icons.cloud_off, size: 72, color: theme.dividerColor),
               const SizedBox(height: 16),
               Text(
                 _errorMessage,
                 textAlign: TextAlign.center,
-                style:
-                    const TextStyle(fontSize: 15, color: AppColors.textMedium),
+                style: theme.textTheme.bodyMedium,
               ),
               const SizedBox(height: 24),
-              ElevatedButton.icon(
+              SigoButton(
+                label: 'Reintentar',
+                icon: Icons.refresh,
                 onPressed: _loadProjects,
-                icon: const Icon(Icons.refresh),
-                label: const Text('Reintentar'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: Colors.white,
-                ),
               ),
             ],
           ),
@@ -456,7 +453,7 @@ class _ProjectsDashboardState extends State<ProjectsDashboard> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.architecture, size: 80, color: AppColors.border),
+            Icon(Icons.architecture, size: 80, color: theme.dividerColor),
             const SizedBox(height: 16),
             Text(
               _selectedStatusFilter != 'Todos'
@@ -465,8 +462,7 @@ class _ProjectsDashboardState extends State<ProjectsDashboard> {
                       ? 'No se encontraron proyectos'
                       : 'No tienes obras asignadas',
               textAlign: TextAlign.center,
-              style:
-                  const TextStyle(fontSize: 16, color: AppColors.textMedium),
+              style: theme.textTheme.bodyLarge,
             ),
             if (_selectedStatusFilter != 'Todos' ||
                 _searchController.text.isNotEmpty)

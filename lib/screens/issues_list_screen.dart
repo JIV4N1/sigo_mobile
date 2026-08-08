@@ -6,7 +6,12 @@ import '../services/api_service.dart';
 import '../services/auth_service.dart';
 import '../config/api_config.dart';
 import '../widgets/issue_card.dart';
+import '../widgets/sigo_button.dart';
 import 'issue_detail_screen.dart';
+import 'issue_form_screen.dart';
+import '../models/project_model.dart';
+import '../services/incidencia_service.dart';
+import '../widgets/shimmer_loading.dart';
 
 class IssuesListScreen extends StatefulWidget {
   /// Si se proporciona, carga las incidencias de ese proyecto.
@@ -19,7 +24,8 @@ class IssuesListScreen extends StatefulWidget {
 }
 
 class _IssuesListScreenState extends State<IssuesListScreen> {
-  String _selectedFilter = 'Todas';
+  String _selectedStatus = 'Todas';
+  String _selectedSeverity = 'Todas';
   String _sortOption = 'Más recientes';
   List<Issue> _allIssues = [];
   List<Issue> _filteredIssues = [];
@@ -28,25 +34,54 @@ class _IssuesListScreenState extends State<IssuesListScreen> {
   String _errorMessage = '';
   String _rol = 'supervisor';
 
-  final List<String> _filters = [
+  final List<String> _statusFilters = [
     'Todas',
     'Abiertas',
     'En Progreso',
     'Resueltas',
-    'Críticas',
-    'Asignadas a mí',
+  ];
+
+  final List<String> _severityFilters = [
+    'Todas',
+    'Baja',
+    'Media',
+    'Alta',
+    'Crítica',
   ];
 
   @override
   void initState() {
     super.initState();
-    _loadRol();
+    _loadRolAndData();
+  }
+
+  Future<void> _loadRolAndData() async {
+    await _loadRol();
     _loadData();
   }
 
   Future<void> _loadRol() async {
     final rol = await AuthService.getRol();
     if (mounted) setState(() => _rol = rol);
+  }
+
+  String? _getApiStatus(String status) {
+    switch (status) {
+      case 'Abiertas': return 'abierta';
+      case 'En Progreso': return 'en_progreso';
+      case 'Resueltas': return 'resuelta';
+      default: return null;
+    }
+  }
+
+  String? _getApiSeverity(String severity) {
+    switch (severity) {
+      case 'Baja': return 'baja';
+      case 'Media': return 'media';
+      case 'Alta': return 'alta';
+      case 'Crítica': return 'critica';
+      default: return null;
+    }
   }
 
   // ─── Carga de datos ───────────────────────────────────────────────────────────
@@ -59,27 +94,34 @@ class _IssuesListScreenState extends State<IssuesListScreen> {
     });
 
     try {
-      final url = widget.projectId != null
-          ? ApiConfig.incidenciasPorProyecto(widget.projectId!)
-          : ApiConfig.incidencias;
+      final apiStatus = _getApiStatus(_selectedStatus);
+      final apiSeverity = _getApiSeverity(_selectedSeverity);
+      List<Issue> issues;
 
-      // Pasar filtro activo como query param si aplica
-      final queryParams = _buildQueryParams();
-      final response = await ApiService.get(url, queryParams: queryParams);
-
-      final rawData = response['data'];
-      List<dynamic> list;
-      if (rawData is List) {
-        list = rawData;
-      } else if (rawData is Map && rawData.containsKey('data')) {
-        list = rawData['data'] as List<dynamic>? ?? [];
+      if (widget.projectId != null) {
+        issues = await IncidenciaService.getIncidenciasPorProyecto(
+          widget.projectId!,
+          estado: apiStatus,
+          severidad: apiSeverity,
+        );
       } else {
-        list = [];
+        if (_rol == 'administrador' || _rol == 'gerente') {
+          issues = await IncidenciaService.getIncidencias(
+            estado: apiStatus,
+            severidad: apiSeverity,
+          );
+        } else if (_rol == 'ingeniero') {
+          issues = await IncidenciaService.getIncidenciasAsignadas(
+            estado: apiStatus,
+            severidad: apiSeverity,
+          );
+        } else {
+          issues = await IncidenciaService.getIncidencias(
+            estado: apiStatus,
+            severidad: apiSeverity,
+          );
+        }
       }
-
-      final issues = list
-          .map((e) => Issue.fromJson(e as Map<String, dynamic>))
-          .toList();
 
       if (!mounted) return;
       setState(() {
@@ -108,48 +150,8 @@ class _IssuesListScreenState extends State<IssuesListScreen> {
     await _loadData();
   }
 
-  Map<String, String>? _buildQueryParams() {
-    final params = <String, String>{};
-    switch (_selectedFilter) {
-      case 'Abiertas':
-        params['estado'] = 'abierta';
-        break;
-      case 'En Progreso':
-        params['estado'] = 'en_progreso';
-        break;
-      case 'Resueltas':
-        params['estado'] = 'resuelta';
-        break;
-      case 'Críticas':
-        params['severidad'] = 'critica';
-        break;
-    }
-    return params.isEmpty ? null : params;
-  }
-
-  // ─── Filtros locales ──────────────────────────────────────────────────────────
-
   void _applyFilters() {
     List<Issue> temp = List.from(_allIssues);
-
-    switch (_selectedFilter) {
-      case 'Abiertas':
-        temp = temp.where((i) => i.status == IssueStatus.open).toList();
-        break;
-      case 'En Progreso':
-        temp = temp.where((i) => i.status == IssueStatus.inProgress).toList();
-        break;
-      case 'Resueltas':
-        temp = temp.where((i) => i.status == IssueStatus.resolved).toList();
-        break;
-      case 'Críticas':
-        temp = temp.where((i) => i.severity == IssueSeverity.critical).toList();
-        break;
-      case 'Asignadas a mí':
-        // Filtrar por nombre del usuario autenticado (comparación local)
-        temp = temp.where((i) => i.assignedTo != null).toList();
-        break;
-    }
 
     switch (_sortOption) {
       case 'Más antiguas':
@@ -172,38 +174,60 @@ class _IssuesListScreenState extends State<IssuesListScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final openCount =
         _allIssues.where((i) => i.status == IssueStatus.open).length;
-    final canReport =
-        _rol == 'supervisor' || _rol == 'ingeniero' || _rol == 'gerente';
+    final canReport = _rol == 'supervisor' ||
+        _rol == 'ingeniero' ||
+        _rol == 'gerente' ||
+        _rol == 'administrador';
 
     return Scaffold(
-      backgroundColor: AppColors.surface,
       appBar: AppBar(
-        backgroundColor: AppColors.surface,
-        elevation: 0,
-        title: const Text(
-          'Incidencias',
-          style: TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 20,
-              color: AppColors.textDark),
-        ),
-        iconTheme: const IconThemeData(color: AppColors.textDark),
+        title: const Text('Incidencias'),
         actions: [
           if (canReport)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               child: ActionChip(
-                backgroundColor: AppColors.accent,
+                backgroundColor: theme.colorScheme.secondary,
                 labelStyle: const TextStyle(
                     color: Colors.white, fontWeight: FontWeight.bold),
                 label: const Text('Reportar nueva'),
                 avatar: const Icon(Icons.add, color: Colors.white, size: 16),
-                onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                    content: Text('Abriendo formulario de nueva incidencia...'),
-                  ));
+                onPressed: () async {
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => IssueFormScreen(
+                        initialProject: widget.projectId != null
+                            ? Project(
+                                id: widget.projectId!,
+                                name: 'Proyecto',
+                                status: ProjectStatus.onTime,
+                                location: '',
+                                startDate: DateTime.now(),
+                                endDate: DateTime.now(),
+                                progress: 0,
+                                photosCount: 0,
+                                issuesCount: 0,
+                                workersCount: 0,
+                                daysElapsed: 0,
+                                totalDays: 0,
+                                activeIssues: 0,
+                                criticalIssues: 0,
+                                weeklyProgress: [],
+                                timeline: [],
+                                client: '',
+                                contract: '',
+                                budget: '',
+                                manager: '',
+                              )
+                            : null, // Si es desde lista global, se pasa null
+                      ),
+                    ),
+                  );
+                  _refreshData();
                 },
               ),
             ),
@@ -219,7 +243,7 @@ class _IssuesListScreenState extends State<IssuesListScreen> {
                     padding: const EdgeInsets.symmetric(
                         horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
-                      color: AppColors.warning.withOpacity(0.1),
+                      color: AppColors.warning.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
@@ -237,28 +261,80 @@ class _IssuesListScreenState extends State<IssuesListScreen> {
       ),
       body: Column(
         children: [
-          // ── Filtros ────────────────────────────────────────────────────────────
+          // ── Filtros Estado ────────────────────────────────────────────────────
+          Padding(
+            padding: const EdgeInsets.only(left: 16.0, top: 8.0, bottom: 4.0),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'Estado:',
+                style: theme.textTheme.labelMedium?.copyWith(fontWeight: FontWeight.bold),
+              ),
+            ),
+          ),
           SizedBox(
-            height: 50,
+            height: 40,
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              itemCount: _filters.length,
+              itemCount: _statusFilters.length,
               itemBuilder: (context, index) {
-                final filter = _filters[index];
-                final isSelected = _selectedFilter == filter;
+                final filter = _statusFilters[index];
+                final isSelected = _selectedStatus == filter;
                 return Padding(
                   padding: const EdgeInsets.only(right: 8),
                   child: ChoiceChip(
                     label: Text(filter),
                     selected: isSelected,
-                    selectedColor: AppColors.primary,
+                    selectedColor: theme.colorScheme.primary,
                     labelStyle: TextStyle(
-                        color: isSelected ? Colors.white : AppColors.textDark),
+                        color: isSelected ? Colors.white : theme.colorScheme.onSurface,
+                        fontSize: 12),
                     onSelected: (selected) {
                       if (selected) {
-                        setState(() => _selectedFilter = filter);
-                        _applyFilters();
+                        setState(() => _selectedStatus = filter);
+                        _loadData();
+                      }
+                    },
+                  ),
+                );
+              },
+            ),
+          ),
+
+          // ── Filtros Severidad ─────────────────────────────────────────────────
+          Padding(
+            padding: const EdgeInsets.only(left: 16.0, top: 8.0, bottom: 4.0),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'Severidad:',
+                style: theme.textTheme.labelMedium?.copyWith(fontWeight: FontWeight.bold),
+              ),
+            ),
+          ),
+          SizedBox(
+            height: 40,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              itemCount: _severityFilters.length,
+              itemBuilder: (context, index) {
+                final filter = _severityFilters[index];
+                final isSelected = _selectedSeverity == filter;
+                return Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: ChoiceChip(
+                    label: Text(filter),
+                    selected: isSelected,
+                    selectedColor: theme.colorScheme.primary,
+                    labelStyle: TextStyle(
+                        color: isSelected ? Colors.white : theme.colorScheme.onSurface,
+                        fontSize: 12),
+                    onSelected: (selected) {
+                      if (selected) {
+                        setState(() => _selectedSeverity = filter);
+                        _loadData();
                       }
                     },
                   ),
@@ -269,20 +345,17 @@ class _IssuesListScreenState extends State<IssuesListScreen> {
 
           // ── Ordenamiento ───────────────────────────────────────────────────────
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('Ordenar por:',
-                    style: TextStyle(
-                        color: AppColors.textMedium, fontSize: 13)),
+                Text('Ordenar por:', style: theme.textTheme.labelMedium),
                 DropdownButton<String>(
                   value: _sortOption,
-                  icon: const Icon(Icons.arrow_drop_down,
-                      color: AppColors.textDark),
+                  icon: const Icon(Icons.arrow_drop_down),
                   underline: const SizedBox(),
-                  style: const TextStyle(
-                      color: AppColors.textDark,
+                  style: TextStyle(
+                      color: theme.colorScheme.onSurface,
                       fontSize: 13,
                       fontWeight: FontWeight.bold),
                   onChanged: (v) {
@@ -306,13 +379,13 @@ class _IssuesListScreenState extends State<IssuesListScreen> {
           ),
 
           // ── Lista ──────────────────────────────────────────────────────────────
-          Expanded(child: _buildList(canReport)),
+          Expanded(child: _buildList(theme)),
         ],
       ),
     );
   }
 
-  Widget _buildList(bool canReport) {
+  Widget _buildList(ThemeData theme) {
     if (_hasError) {
       return Center(
         child: Padding(
@@ -320,21 +393,11 @@ class _IssuesListScreenState extends State<IssuesListScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.cloud_off, size: 64, color: AppColors.border),
+              Icon(Icons.cloud_off, size: 64, color: theme.dividerColor),
               const SizedBox(height: 16),
-              Text(_errorMessage,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(color: AppColors.textMedium)),
+              Text(_errorMessage, textAlign: TextAlign.center, style: theme.textTheme.bodyMedium),
               const SizedBox(height: 16),
-              ElevatedButton.icon(
-                onPressed: _loadData,
-                icon: const Icon(Icons.refresh),
-                label: const Text('Reintentar'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: Colors.white,
-                ),
-              ),
+              SigoButton(label: 'Reintentar', icon: Icons.refresh, onPressed: _loadData),
             ],
           ),
         ),
@@ -342,9 +405,11 @@ class _IssuesListScreenState extends State<IssuesListScreen> {
     }
 
     if (_isLoading) {
-      return const Center(
-          child:
-              CircularProgressIndicator(color: AppColors.accent));
+      return ListView.builder(
+        itemCount: 5,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        itemBuilder: (context, index) => const ShimmerLoadingCard(),
+      );
     }
 
     return RefreshIndicator(
@@ -366,8 +431,11 @@ class _IssuesListScreenState extends State<IssuesListScreen> {
               Center(
                 child: TextButton(
                   onPressed: () {
-                    setState(() => _selectedFilter = 'Todas');
-                    _applyFilters();
+                    setState(() {
+                      _selectedStatus = 'Todas';
+                      _selectedSeverity = 'Todas';
+                    });
+                    _loadData();
                   },
                   child: const Text('Limpiar filtros'),
                 ),
@@ -383,12 +451,13 @@ class _IssuesListScreenState extends State<IssuesListScreen> {
                   transitionType: ContainerTransitionType.fadeThrough,
                   closedElevation: 0,
                   closedColor: Colors.transparent,
-                  openColor: AppColors.surface,
+                  openColor: theme.colorScheme.surface,
                   closedBuilder: (context, action) =>
                       IssueCard(issue: issue, onTap: action),
                   openBuilder: (context, action) => IssueDetailScreen(
                     issue: issue,
                     rol: _rol,
+                    fallbackProjectId: widget.projectId,
                   ),
                 );
               },

@@ -1,4 +1,5 @@
 import 'report_model.dart';
+import '../config/api_config.dart';
 
 enum IssueSeverity { critical, high, medium, low }
 
@@ -72,6 +73,7 @@ class IssueComment {
 
 class Issue {
   final String id;
+  final String? code;
   final String title;
   final String description;
   final String category;
@@ -88,9 +90,11 @@ class Issue {
   final double? latitude;
   final double? longitude;
   final int? projectId;
+  final String? projectName;
 
   Issue({
     required this.id,
+    this.code,
     required this.title,
     required this.description,
     required this.category,
@@ -107,7 +111,18 @@ class Issue {
     this.latitude,
     this.longitude,
     this.projectId,
+    this.projectName,
   });
+
+  static String _formatPhotoUrl(String? path) {
+    if (path == null || path.isEmpty) return '';
+    if (path.startsWith('http://') || path.startsWith('https://')) {
+      return path;
+    }
+    final baseUrl = ApiConfig.baseUrl.replaceAll('/api', '');
+    final cleanPath = path.startsWith('/') ? path : '/$path';
+    return '$baseUrl$cleanPath';
+  }
 
   /// Convierte el string de severidad del backend al enum [IssueSeverity].
   static IssueSeverity _parseSeverity(String? raw) {
@@ -157,7 +172,7 @@ class Issue {
   /// Crea un [Issue] a partir del JSON de la API.
   factory Issue.fromJson(Map<String, dynamic> json) {
     // Reporter — puede ser objeto usuario o string
-    final reporterRaw = json['reportado_por'] ?? json['reporter'] ?? json['creador'];
+    final reporterRaw = json['reportado_por'] ?? json['reporter'] ?? json['creador'] ?? json['reportante'];
     String reporterName = '';
     if (reporterRaw is Map) {
       reporterName = reporterRaw['nombre'] as String? ??
@@ -176,11 +191,22 @@ class Issue {
       assignedName = assignedRaw as String?;
     }
 
+    // Proyecto — puede venir como objeto anidado {id, nombre} o como string
+    final proyectoRaw = json['proyecto'];
+    String? projName;
+    int? projIdFromProyecto;
+    if (proyectoRaw is Map) {
+      projName = proyectoRaw['nombre'] as String?;
+      projIdFromProyecto = (proyectoRaw['id'] as num?)?.toInt();
+    } else if (proyectoRaw is String) {
+      projName = proyectoRaw;
+    }
+
     // Fotos
     final fotosRaw = json['fotos'] as List<dynamic>? ?? [];
     final photos = fotosRaw
         .map((e) => ReportPhoto(
-              path: (e as Map)['url'] as String? ?? e['path'] as String? ?? '',
+              path: _formatPhotoUrl((e as Map)['url'] as String? ?? e['path'] as String?),
               description:
                   e['descripcion'] as String? ?? e['description'] as String? ?? '',
               category: e['categoria'] as String? ?? '',
@@ -203,6 +229,7 @@ class Issue {
 
     return Issue(
       id: json['id']?.toString() ?? '',
+      code: json['codigo']?.toString() ?? json['code']?.toString(),
       title: json['titulo'] as String? ?? json['title'] as String? ?? '',
       description:
           json['descripcion'] as String? ?? json['description'] as String? ?? '',
@@ -226,7 +253,10 @@ class Issue {
       comments: comments,
       latitude: (json['latitud'] ?? json['latitude'])?.toDouble(),
       longitude: (json['longitud'] ?? json['longitude'])?.toDouble(),
-      projectId: (json['proyecto_id'] ?? json['project_id'])?.toInt(),
+      projectId: (json['proyecto_id'] as num?)?.toInt() ??
+          (json['project_id'] as num?)?.toInt() ??
+          projIdFromProyecto,
+      projectName: projName,
     );
   }
 }
