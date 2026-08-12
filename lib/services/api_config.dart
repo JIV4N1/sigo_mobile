@@ -1,19 +1,15 @@
 /// Configuración central de endpoints de la API SIGO.
-/// Apunta al backend Laravel con Sanctum via ngrok.
+/// Apunta al backend Laravel desplegado en producción (EasyPanel/IONOS).
 class ApiConfig {
   // ─── URL Base ──────────────────────────────────────────────────────────────
-  // URL del backend Laravel expuesto con ngrok.
-  // IMPORTANTE: ngrok-free siempre tiene el dominio fijo (no caduca por sesión).
+  // URL del backend Laravel en producción.
   static const String baseUrl =
-      'https://hypersceptical-yu-skinflinty.ngrok-free.dev/api';
+      'https://db-sigo-sigo-api.q2llut.easypanel.host/api';
 
   // ─── Headers base que deben ir en TODAS las peticiones ────────────────────
-  // El header 'ngrok-skip-browser-warning' evita que ngrok devuelva
-  // una página HTML de advertencia en lugar del JSON de la API.
   static const Map<String, String> defaultHeaders = {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
-    'ngrok-skip-browser-warning': 'true',
   };
 
   // ─── Autenticación ───────────────────────────────────────────────────────────
