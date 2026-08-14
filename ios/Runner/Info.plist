@@ -45,5 +45,11 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>SIGO necesita acceder a la cámara para adjuntar fotos a reportes e incidencias.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>SIGO necesita acceder a tus fotos para adjuntarlas a reportes e incidencias.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>SIGO usa tu ubicación para georreferenciar incidencias y reportes.</string>
 </dict>
 </plist>

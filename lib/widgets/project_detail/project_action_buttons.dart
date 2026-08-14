@@ -5,6 +5,7 @@ import '../../screens/report_form_screen.dart';
 import '../../screens/issues_list_screen.dart';
 import '../../screens/validar_reportes_screen.dart';
 import '../../screens/gastos/gastos_list_screen.dart';
+import '../../screens/attendance_screen.dart';
 
 class ProjectActionButtons extends StatelessWidget {
   final Project project;
@@ -57,11 +58,7 @@ class ProjectActionButtons extends StatelessWidget {
           bgColor: Colors.green.shade50,
           fgColor: AppColors.success,
           onTap: () {
-            // Se asume que el usuario sabe cómo llegar a Asistencia, si no la abrimos aquí:
-            // Por el momento mostramos un SnackBar de Asistencia local a la obra
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Abriendo Registro de Asistencia...')),
-            );
+            Navigator.push(context, MaterialPageRoute(builder: (_) => const AttendanceScreen()));
           },
         ),
       );

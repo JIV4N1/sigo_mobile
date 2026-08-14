@@ -214,6 +214,7 @@ class _ProjectsDashboardState extends State<ProjectsDashboard> {
           _NavEntry('dashboard', Icons.grid_view_outlined, Icons.grid_view, 'Proyectos'),
           _NavEntry('incidencias', Icons.warning_amber_outlined, Icons.warning_amber_rounded, 'Incidencias'),
           _NavEntry('gastos', Icons.receipt_long_outlined, Icons.receipt_long, 'Gastos'),
+          _NavEntry('asistencia', Icons.access_time, Icons.access_time_filled, 'Asistencia'),
           _NavEntry('validar', Icons.verified_outlined, Icons.verified, 'Validar'),
           _NavEntry('perfil', Icons.person_outline, Icons.person, 'Perfil'),
         ];
@@ -223,6 +224,7 @@ class _ProjectsDashboardState extends State<ProjectsDashboard> {
           _NavEntry('dashboard', Icons.grid_view_outlined, Icons.grid_view, 'Proyectos'),
           _NavEntry('incidencias', Icons.warning_amber_outlined, Icons.warning_amber_rounded, 'Incidencias'),
           _NavEntry('gastos', Icons.receipt_long_outlined, Icons.receipt_long, 'Gastos'),
+          _NavEntry('asistencia', Icons.access_time, Icons.access_time_filled, 'Asistencia'),
           _NavEntry('validar', Icons.verified_outlined, Icons.verified, 'Reportes'),
           _NavEntry('perfil', Icons.person_outline, Icons.person, 'Perfil'),
         ];

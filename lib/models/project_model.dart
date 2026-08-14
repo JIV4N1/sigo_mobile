@@ -94,7 +94,7 @@ class Project {
     } else if (rol == 'ingeniero') {
       return ['reporte_diario', 'atender_incidencias', 'asistencia', 'gastos_obra'];
     } else if (rol == 'gerente') {
-      return ['kpis', 'validar_reportes', 'asignar_incidencias', 'gastos_obra'];
+      return ['kpis', 'validar_reportes', 'asignar_incidencias', 'gastos_obra', 'asistencia'];
     } else if (rol == 'administrador') {
       return [
         'reporte_diario',
@@ -108,6 +108,13 @@ class Project {
     }
     return ['incidencias', 'asistencia']; // Acciones por defecto
   }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) || (other is Project && other.id == id);
+
+  @override
+  int get hashCode => id.hashCode;
 
   /// Convierte el string de estado del backend al enum [ProjectStatus].
   static ProjectStatus _parseStatus(String? raw) {

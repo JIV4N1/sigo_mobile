@@ -83,6 +83,9 @@ class _IssueFormScreenState extends State<IssueFormScreen> {
     } catch (_) {
       if (mounted) {
         setState(() => _isLoadingProjects = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No se pudieron cargar los proyectos. Intenta de nuevo.')),
+        );
       }
     }
   }

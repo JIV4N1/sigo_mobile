@@ -39,6 +39,7 @@ class ApiException implements Exception {
 /// 7. **Multipart**: para subida de fotos con el campo `fotos[]`.
 class ApiService {
   static const Duration _timeout = Duration(seconds: 20);
+  static const Duration _uploadTimeout = Duration(seconds: 45);
 
   // ─── Headers ──────────────────────────────────────────────────────────────────
 
@@ -306,7 +307,7 @@ class ApiService {
         }
       }
 
-      final streamedResponse = await request.send().timeout(_timeout);
+      final streamedResponse = await request.send().timeout(_uploadTimeout);
       final response = await http.Response.fromStream(streamedResponse);
       return _handleResponse(response);
     } on ApiException {

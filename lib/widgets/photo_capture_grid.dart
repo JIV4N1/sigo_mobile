@@ -42,7 +42,11 @@ class _PhotoCaptureGridState extends State<PhotoCaptureGrid> {
         widget.onPhotosChanged(_photos);
       }
     } catch (e) {
-      // Manejar error silenciosamente o mostrar snackbar
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No se pudo capturar/seleccionar la foto.')),
+        );
+      }
     }
   }
 

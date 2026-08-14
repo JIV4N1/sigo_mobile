@@ -5,6 +5,7 @@ import '../services/api_service.dart';
 import '../services/api_config.dart';
 import '../widgets/sigo_button.dart';
 import '../widgets/sigo_input.dart';
+import '../widgets/sigo_logo.dart';
 import 'projects_dashboard.dart';
 
 /// Pantalla de inicio de sesión con autenticación real via Laravel Sanctum.
@@ -178,19 +179,7 @@ class _LoginScreenState extends State<LoginScreen>
   Widget _buildLogo() {
     return Column(
       children: [
-        Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.1),
-            shape: BoxShape.circle,
-            border: Border.all(color: Colors.white.withValues(alpha: 0.2), width: 2),
-          ),
-          child: const Icon(
-            Icons.apartment_rounded,
-            size: 60,
-            color: Colors.white,
-          ),
-        ),
+        const SigoLogoBadge(size: 96),
         const SizedBox(height: 20),
         const Text(
           'SIGO',
