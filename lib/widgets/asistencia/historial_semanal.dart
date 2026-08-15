@@ -1,28 +1,85 @@
 import 'package:flutter/material.dart';
 import '../../models/asistencia_model.dart';
+import '../../theme/app_colors.dart';
 import 'package:intl/intl.dart';
+
+class _EstadoInfo {
+  final Color color;
+  final IconData icono;
+  final String label;
+
+  const _EstadoInfo(this.color, this.icono, this.label);
+}
 
 class HistorialSemanal extends StatelessWidget {
   final List<ResumenDia> historial;
 
   const HistorialSemanal({Key? key, required this.historial}) : super(key: key);
 
-  Widget _buildStatusIcon(String estado) {
+  _EstadoInfo _estadoInfo(String estado) {
     switch (estado) {
       case 'Completo':
-        return const Icon(Icons.check_circle, color: Colors.green, size: 20);
+        return const _EstadoInfo(AppColors.success, Icons.check_circle, 'Completo');
       case 'Incompleto':
-        return const Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 20);
+        return const _EstadoInfo(AppColors.warning, Icons.warning_amber_rounded, 'Incompleto');
       default:
-        return const Icon(Icons.cancel, color: Colors.red, size: 20);
+        return const _EstadoInfo(AppColors.textMedium, Icons.remove_circle_outline, 'Sin registrar');
     }
   }
 
+  String _formatFecha(DateTime fecha) {
+    final texto = DateFormat('E d/MM', 'es').format(fecha);
+    return texto[0].toUpperCase() + texto.substring(1);
+  }
+
   String _formatDuration(Duration duration) {
-    if (duration == Duration.zero) return '--:--';
+    if (duration == Duration.zero) return 'Sin horas';
     final hours = duration.inHours;
     final minutes = duration.inMinutes.remainder(60);
     return '${hours}h ${minutes}m';
+  }
+
+  void _mostrarDetalle(BuildContext context, ResumenDia dia) {
+    final info = _estadoInfo(dia.estado);
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                DateFormat("EEEE d 'de' MMMM 'de' y", 'es').format(dia.fecha),
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.primary),
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: info.color.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(info.icono, color: info.color, size: 18),
+                  const SizedBox(width: 8),
+                  Text(info.label, style: TextStyle(color: info.color, fontWeight: FontWeight.bold)),
+                ]),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Horas trabajadas: ${_formatDuration(dia.horasTrabajadas)}',
+                style: const TextStyle(fontSize: 15),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -47,10 +104,9 @@ class HistorialSemanal extends StatelessWidget {
               separatorBuilder: (context, index) => const Divider(),
               itemBuilder: (context, index) {
                 final dia = historial[index];
+                final info = _estadoInfo(dia.estado);
                 return InkWell(
-                  onTap: () {
-                    // Muestra detalle del día
-                  },
+                  onTap: () => _mostrarDetalle(context, dia),
                   child: Padding(
                     padding: const EdgeInsets.symmetric(vertical: 8.0),
                     child: Row(
@@ -58,11 +114,25 @@ class HistorialSemanal extends StatelessWidget {
                       children: [
                         Row(
                           children: [
-                            _buildStatusIcon(dia.estado),
+                            CircleAvatar(
+                              radius: 16,
+                              backgroundColor: info.color.withOpacity(0.12),
+                              child: Icon(info.icono, color: info.color, size: 16),
+                            ),
                             const SizedBox(width: 12),
-                            Text(
-                              DateFormat('E d', 'es').format(dia.fecha).toUpperCase(),
-                              style: const TextStyle(fontWeight: FontWeight.bold),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  _formatFecha(dia.fecha),
+                                  style: const TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  info.label,
+                                  style: TextStyle(color: info.color, fontSize: 12, fontWeight: FontWeight.w600),
+                                ),
+                              ],
                             ),
                           ],
                         ),

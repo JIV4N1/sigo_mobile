@@ -29,7 +29,7 @@ class BotonAsistencia extends StatelessWidget {
           onTap: habilitado ? onPressed : null,
           borderRadius: BorderRadius.circular(16),
           child: Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
@@ -40,11 +40,13 @@ class BotonAsistencia extends StatelessWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(icono, size: 40, color: habilitado ? colorBase : Colors.grey),
-                const SizedBox(height: 12),
+                Icon(icono, size: 34, color: habilitado ? colorBase : Colors.grey),
+                const SizedBox(height: 8),
                 Text(
                   titulo,
                   textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
@@ -56,6 +58,8 @@ class BotonAsistencia extends StatelessWidget {
                   Text(
                     subtitulo!,
                     textAlign: TextAlign.center,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontSize: 12,
                       color: habilitado ? colorBase.withOpacity(0.8) : Colors.grey,

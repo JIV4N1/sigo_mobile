@@ -333,13 +333,15 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
             const SizedBox(height: 32),
 
             // ── Botones de acción ────────────────────────────────────────────────
-            GridView.count(
-              crossAxisCount: 2,
+            GridView(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
-              mainAxisSpacing: 16,
-              crossAxisSpacing: 16,
-              childAspectRatio: 1.2,
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                mainAxisSpacing: 16,
+                crossAxisSpacing: 16,
+                mainAxisExtent: 132,
+              ),
               children: [
                 BotonAsistencia(
                   titulo: 'Registrar Entrada',
